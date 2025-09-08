@@ -67,21 +67,30 @@
         }
 
         .no-sub-player {
-            box-shadow: 0 0 10px rgba(255, 215, 0, 0.7);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.8);
             background: linear-gradient(135deg, #ffd700, #ffed4e) !important;
-            border-color: #ffd700 !important;
+            border: 3px solid #ffd700 !important;
         }
 
-        .sub-color-1 { background-color: #fef3c7 !important; border-color: #f59e0b !important; }
-        .sub-color-2 { background-color: #dcfce7 !important; border-color: #22c55e !important; }
-        .sub-color-3 { background-color: #dbeafe !important; border-color: #3b82f6 !important; }
-        .sub-color-4 { background-color: #f3e8ff !important; border-color: #8b5cf6 !important; }
-        .sub-color-5 { background-color: #fce7f3 !important; border-color: #ec4899 !important; }
-        .sub-color-6 { background-color: #f0e6ff !important; border-color: #7c3aed !important; }
+        .sub-color-1 { background-color: #fef3c7 !important; border: 3px solid #f59e0b !important; }
+        .sub-color-2 { background-color: #dcfce7 !important; border: 3px solid #22c55e !important; }
+        .sub-color-3 { background-color: #dbeafe !important; border: 3px solid #3b82f6 !important; }
+        .sub-color-4 { background-color: #f3e8ff !important; border: 3px solid #8b5cf6 !important; }
+        .sub-color-5 { background-color: #fce7f3 !important; border: 3px solid #ec4899 !important; }
+        .sub-color-6 { background-color: #fef2f2 !important; border: 3px solid #ef4444 !important; }
 
         .install-prompt {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             animation: slideIn 0.3s ease-out;
+        }
+
+        .substitution-counter {
+            background: linear-gradient(45deg, #06b6d4, #0891b2);
+            color: white;
+            font-weight: bold;
+            border-radius: 8px;
+            padding: 8px 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         @keyframes pulse {
@@ -106,20 +115,26 @@
             const [deferredPrompt, setDeferredPrompt] = useState(null);
             const [showInstallPrompt, setShowInstallPrompt] = useState(false);
 
-            // Multi-team management
-            const [currentTeamSlot, setCurrentTeamSlot] = useState(() => 
-                parseInt(localStorage.getItem('volleyball_currentTeamSlot')) || 1
-            );
+            // Fixed multi-team management with proper slot rotation
+            const [teamSlots, setTeamSlots] = useState(() => {
+                const saved = localStorage.getItem('volleyball_teamSlots');
+                return saved ? JSON.parse(saved) : {
+                    active: 'team1',
+                    team1: { name: 'Team 1', hasData: false },
+                    team2: { name: 'Team 2', hasData: false },
+                    team3: { name: 'Team 3', hasData: false }
+                };
+            });
 
             // Play Mode State
             const [playMode, setPlayMode] = useState(() => 
-                localStorage.getItem(`volleyball_playMode_team${currentTeamSlot}`) || 'rotational'
+                localStorage.getItem(`volleyball_playMode_${teamSlots.active}`) || 'rotational'
             );
 
-            // Load data from localStorage on startup with team slot support
+            // Load data from localStorage with proper team slot support
             const loadFromStorage = (key, defaultValue) => {
                 try {
-                    const saved = localStorage.getItem(`${key}_team${currentTeamSlot}`);
+                    const saved = localStorage.getItem(`${key}_${teamSlots.active}`);
                     return saved ? JSON.parse(saved) : defaultValue;
                 } catch (error) {
                     console.warn(`Error loading ${key} from storage:`, error);
@@ -127,18 +142,27 @@
                 }
             };
 
-            // Save data to localStorage with team slot support
+            // Save data to localStorage with proper team slot support
             const saveToStorage = (key, data) => {
                 try {
-                    localStorage.setItem(`${key}_team${currentTeamSlot}`, JSON.stringify(data));
+                    localStorage.setItem(`${key}_${teamSlots.active}`, JSON.stringify(data));
+                    // Mark team as having data
+                    setTeamSlots(prev => {
+                        const updated = {
+                            ...prev,
+                            [prev.active]: { ...prev[prev.active], hasData: true }
+                        };
+                        localStorage.setItem('volleyball_teamSlots', JSON.stringify(updated));
+                        return updated;
+                    });
                 } catch (error) {
                     console.warn(`Error saving ${key} to storage:`, error);
                 }
             };
 
-            // Enhanced player data structure with new attributes
+            // Enhanced player data structure
             const [players, setPlayers] = useState(() => {
-                const saved = localStorage.getItem(`volleyball_players_team${currentTeamSlot}`);
+                const saved = localStorage.getItem(`volleyball_players_${teamSlots.active}`);
                 if (saved) {
                     const parsedPlayers = JSON.parse(saved);
                     return parsedPlayers.map(p => ({
@@ -147,30 +171,32 @@
                         setting: p.setting || 3,
                         allAround: p.allAround || 3,
                         subPair: p.subPair || null,
-                        subColor: p.subColor || null
+                        subColor: p.subColor || null,
+                        isFullTime: p.isFullTime || false
                     }));
                 }
                 return [
-                    { id: 1, name: '1', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null },
-                    { id: 2, name: '2', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null },
-                    { id: 3, name: '3', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null },
-                    { id: 4, name: '4', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null },
-                    { id: 5, name: '5', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null },
-                    { id: 6, name: '6', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null },
-                    { id: 7, name: '7', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null },
-                    { id: 8, name: '8', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null },
-                    { id: 9, name: '9', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null },
-                    { id: 10, name: '10', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null }
+                    { id: 1, name: '1', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                    { id: 2, name: '2', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                    { id: 3, name: '3', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                    { id: 4, name: '4', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                    { id: 5, name: '5', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                    { id: 6, name: '6', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                    { id: 7, name: '7', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                    { id: 8, name: '8', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                    { id: 9, name: '9', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                    { id: 10, name: '10', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false }
                 ];
             });
 
-            // Substitution tracking state
+            // Enhanced substitution tracking
             const [substitutionCount, setSubstitutionCount] = useState(0);
             const [subHistory, setSubHistory] = useState([]);
+            const [rotationCount, setRotationCount] = useState(0);
 
             const [showPlayerForm, setShowPlayerForm] = useState(false);
             const [editingPlayer, setEditingPlayer] = useState(null);
-            const [teamName, setTeamName] = useState(() => loadFromStorage('volleyball_teamName', `Team ${currentTeamSlot}`));
+            const [teamName, setTeamName] = useState(() => loadFromStorage('volleyball_teamName', teamSlots[teamSlots.active].name));
             const [minThreshold, setMinThreshold] = useState(() => loadFromStorage('volleyball_minThreshold', 6));
             const [isOptimizing, setIsOptimizing] = useState(false);
             const [draggedPlayer, setDraggedPlayer] = useState(null);
@@ -190,7 +216,7 @@
                 star: false
             });
 
-            // Court positions (6 on court, rest on bench)
+            // Court positions
             const [courtPositions, setCourtPositions] = useState(() => 
                 loadFromStorage('volleyball_courtPositions', {
                     backLeft: null,
@@ -203,81 +229,93 @@
                 })
             );
 
-            // Team slot management
-            const switchTeam = (slot) => {
+            // Fixed team switching with proper slot rotation
+            const switchTeam = (targetSlot) => {
                 // Save current team data before switching
                 saveToStorage('volleyball_players', players);
                 saveToStorage('volleyball_teamName', teamName);
                 saveToStorage('volleyball_minThreshold', minThreshold);
                 saveToStorage('volleyball_courtPositions', courtPositions);
-                localStorage.setItem(`volleyball_playMode_team${currentTeamSlot}`, playMode);
+                localStorage.setItem(`volleyball_playMode_${teamSlots.active}`, playMode);
                 
-                // Switch to new team
-                setCurrentTeamSlot(slot);
-                localStorage.setItem('volleyball_currentTeamSlot', slot);
+                // Update team name in slots
+                const currentActiveSlot = teamSlots.active;
+                const updatedSlots = {
+                    ...teamSlots,
+                    active: targetSlot,
+                    [currentActiveSlot]: { ...teamSlots[currentActiveSlot], name: teamName, hasData: true }
+                };
                 
-                // Load new team data
-                const newTeamData = localStorage.getItem(`volleyball_players_team${slot}`);
-                if (newTeamData) {
-                    const parsedPlayers = JSON.parse(newTeamData);
+                setTeamSlots(updatedSlots);
+                localStorage.setItem('volleyball_teamSlots', JSON.stringify(updatedSlots));
+                
+                // Load target team data
+                const targetTeamData = localStorage.getItem(`volleyball_players_${targetSlot}`);
+                if (targetTeamData) {
+                    const parsedPlayers = JSON.parse(targetTeamData);
                     setPlayers(parsedPlayers.map(p => ({
                         ...p,
                         serveReceive: p.serveReceive || 3,
                         setting: p.setting || 3,
                         allAround: p.allAround || 3,
                         subPair: p.subPair || null,
-                        subColor: p.subColor || null
+                        subColor: p.subColor || null,
+                        isFullTime: p.isFullTime || false
                     })));
                 } else {
                     setPlayers([
-                        { id: 1, name: '1', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null },
-                        { id: 2, name: '2', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null },
-                        { id: 3, name: '3', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null },
-                        { id: 4, name: '4', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null },
-                        { id: 5, name: '5', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null },
-                        { id: 6, name: '6', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null },
-                        { id: 7, name: '7', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null },
-                        { id: 8, name: '8', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null },
-                        { id: 9, name: '9', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null },
-                        { id: 10, name: '10', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null }
+                        { id: 1, name: '1', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                        { id: 2, name: '2', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                        { id: 3, name: '3', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                        { id: 4, name: '4', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                        { id: 5, name: '5', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                        { id: 6, name: '6', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                        { id: 7, name: '7', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                        { id: 8, name: '8', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                        { id: 9, name: '9', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                        { id: 10, name: '10', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false }
                     ]);
                 }
                 
                 // Load other team-specific data
-                const newTeamName = localStorage.getItem(`volleyball_teamName_team${slot}`);
-                setTeamName(newTeamName ? JSON.parse(newTeamName) : `Team ${slot}`);
+                const targetTeamName = localStorage.getItem(`volleyball_teamName_${targetSlot}`);
+                setTeamName(targetTeamName ? JSON.parse(targetTeamName) : updatedSlots[targetSlot].name);
                 
-                const newMinThreshold = localStorage.getItem(`volleyball_minThreshold_team${slot}`);
-                setMinThreshold(newMinThreshold ? JSON.parse(newMinThreshold) : 6);
+                const targetMinThreshold = localStorage.getItem(`volleyball_minThreshold_${targetSlot}`);
+                setMinThreshold(targetMinThreshold ? JSON.parse(targetMinThreshold) : 6);
                 
-                const newCourtPositions = localStorage.getItem(`volleyball_courtPositions_team${slot}`);
-                setCourtPositions(newCourtPositions ? JSON.parse(newCourtPositions) : {
+                const targetCourtPositions = localStorage.getItem(`volleyball_courtPositions_${targetSlot}`);
+                setCourtPositions(targetCourtPositions ? JSON.parse(targetCourtPositions) : {
                     backLeft: null, frontLeft: null, frontMiddle: null,
                     frontRight: null, backRight: null, backMiddle: null, bench: []
                 });
                 
-                const newPlayMode = localStorage.getItem(`volleyball_playMode_team${slot}`);
-                setPlayMode(newPlayMode || 'rotational');
+                const targetPlayMode = localStorage.getItem(`volleyball_playMode_${targetSlot}`);
+                setPlayMode(targetPlayMode || 'rotational');
                 
-                // Reset optimization state
+                // Reset optimization and substitution state
                 setBestLineups([]);
                 setCurrentLineupIndex(0);
                 setSubstitutionCount(0);
                 setSubHistory([]);
+                setRotationCount(0);
             };
-
-            // Get team name for display in team switcher
-            const getTeamDisplayName = (slot) => {
-                const savedName = localStorage.getItem(`volleyball_teamName_team${slot}`);
-                return savedName ? JSON.parse(savedName) : `Team ${slot}`;
-            };
-  // Save to localStorage whenever data changes
+// Save to localStorage whenever data changes
             useEffect(() => {
                 saveToStorage('volleyball_players', players);
             }, [players]);
 
             useEffect(() => {
                 saveToStorage('volleyball_teamName', teamName);
+                // Update team name in slots
+                setTeamSlots(prev => {
+                    const updated = {
+                        ...prev,
+                        [prev.active]: { ...prev[prev.active], name: teamName }
+                    };
+                    localStorage.setItem('volleyball_teamSlots', JSON.stringify(updated));
+                    return updated;
+                });
             }, [teamName]);
 
             useEffect(() => {
@@ -289,8 +327,8 @@
             }, [courtPositions]);
 
             useEffect(() => {
-                localStorage.setItem(`volleyball_playMode_team${currentTeamSlot}`, playMode);
-            }, [playMode, currentTeamSlot]);
+                localStorage.setItem(`volleyball_playMode_${teamSlots.active}`, playMode);
+            }, [playMode, teamSlots.active]);
 
             // PWA Install Prompt Handling
             useEffect(() => {
@@ -338,12 +376,12 @@
                 }
             };
 
-            // Color assignment utility with improved colors
+            // Enhanced color assignment utility with better contrast
             const SUB_COLORS = ['sub-color-1', 'sub-color-2', 'sub-color-3', 'sub-color-4', 'sub-color-5', 'sub-color-6'];
 
             // Get available sub colors
             const getAvailableSubColors = () => {
-                const usedColors = new Set(players.map(p => p.subColor).filter(Boolean));
+                const usedColors = new Set(players.map(p => p.subColor).filter(p => p !== null));
                 return SUB_COLORS.filter((_, index) => !usedColors.has(index));
             };
 
@@ -354,7 +392,8 @@
                         id: Date.now(),
                         ...playerForm,
                         subPair: null,
-                        subColor: null
+                        subColor: null,
+                        isFullTime: false
                     };
                     setPlayers([...players, newPlayer]);
                     setPlayerForm({ 
@@ -434,10 +473,10 @@
                 ));
             };
 
-            // Substitution pairing functions
+            // Enhanced substitution pairing functions with automatic color assignment
             const createSubPair = (player1Id, player2Id) => {
                 const availableColors = getAvailableSubColors();
-                if (availableColors.length === 0) return;
+                if (availableColors.length === 0) return false;
 
                 const colorIndex = SUB_COLORS.indexOf(availableColors[0]);
 
@@ -446,11 +485,13 @@
                         return { 
                             ...p, 
                             subPair: p.id === player1Id ? player2Id : player1Id,
-                            subColor: colorIndex 
+                            subColor: colorIndex,
+                            isFullTime: false
                         };
                     }
                     return p;
                 }));
+                return true;
             };
 
             const removeSubPair = (playerId) => {
@@ -460,7 +501,7 @@
                 const pairId = player.subPair;
                 setPlayers(prev => prev.map(p => {
                     if (p.id === playerId || p.id === pairId) {
-                        return { ...p, subPair: null, subColor: null };
+                        return { ...p, subPair: null, subColor: null, isFullTime: false };
                     }
                     return p;
                 }));
@@ -479,6 +520,44 @@
                 }));
             };
 
+            // Intelligent substitution logic - determines which player should be on court based on position
+            const getOptimalPlayerForPosition = (player1, player2, isBackRow) => {
+                if (!player1 || !player2) return player1 || player2;
+                
+                if (isBackRow) {
+                    // Back row: prefer higher serve receive
+                    return player1.serveReceive >= player2.serveReceive ? player1 : player2;
+                } else {
+                    // Front row: prefer higher setting
+                    return player1.setting >= player2.setting ? player1 : player2;
+                }
+            };
+
+            // Check if a position is in back row
+            const isBackRowPosition = (position) => {
+                return ['backLeft', 'backMiddle', 'backRight'].includes(position);
+            };
+
+            // Determine which players should be full-time (no subs) based on roster size
+            const determineFullTimePlayers = (activePlayers) => {
+                if (activePlayers.length <= 6) {
+                    // Not enough players for any subs - all are full-time
+                    return activePlayers.map(p => p.id);
+                }
+                
+                const availableForPairing = activePlayers.length - (activePlayers.filter(p => p.star).length);
+                const needFullTime = availableForPairing % 2; // Odd number means someone needs to be full-time
+                
+                if (needFullTime === 0) return [];
+                
+                // Select highest all-around rated players as full-time
+                const sortedByAllAround = activePlayers
+                    .filter(p => !p.star) // Stars are already marked as no-sub
+                    .sort((a, b) => b.allAround - a.allAround);
+                    
+                return sortedByAllAround.slice(0, needFullTime).map(p => p.id);
+            };
+
             // Export team data
             const exportData = () => {
                 const data = {
@@ -487,6 +566,7 @@
                     minThreshold,
                     courtPositions,
                     playMode,
+                    teamSlots,
                     exportDate: new Date().toISOString()
                 };
                 
@@ -517,6 +597,7 @@
                         if (importedData.minThreshold) setMinThreshold(importedData.minThreshold);
                         if (importedData.courtPositions) setCourtPositions(importedData.courtPositions);
                         if (importedData.playMode) setPlayMode(importedData.playMode);
+                        if (importedData.teamSlots) setTeamSlots(importedData.teamSlots);
                         
                         alert('Team data imported successfully!');
                     } catch (error) {
@@ -563,9 +644,8 @@
 
                 return true;
             };
-
-            // Calculate rotation strengths for rotational mode
-const calculateRotationStrengths = (positions) => {
+// Calculate rotation strengths for rotational mode
+            const calculateRotationStrengths = (positions) => {
                 const rotations = [];
                 let currentPositions = { ...positions };
                 
@@ -608,7 +688,7 @@ const calculateRotationStrengths = (positions) => {
                 return rotations;
             };
 
-            // Substitutional play optimization algorithm
+            // Enhanced substitutional play optimization algorithm with proper pairing and positioning
             const optimizeSubstitutionalPlay = async () => {
                 setIsOptimizing(true);
                 
@@ -618,33 +698,26 @@ const calculateRotationStrengths = (positions) => {
                 const noSubPlayers = activePlayers.filter(p => p.star);
                 
                 if (activePlayers.length < 6) {
+                    alert("Need at least 6 active players for optimization.");
                     setIsOptimizing(false);
                     return;
                 }
 
-                const totalPlayers = activePlayers.length;
-                const maxNoSubPlayers = Math.min(3, totalPlayers - 4);
-                const pairablePlayers = totalPlayers - noSubPlayers.length;
-                
-                if (pairablePlayers % 2 !== 0 && noSubPlayers.length >= maxNoSubPlayers) {
-                    alert("Invalid configuration: Need an even number of pairable players.");
-                    setIsOptimizing(false);
-                    return;
-                }
-
-                // Auto-assign optimal sub pairings
-                const playersNeedingPairs = activePlayers.filter(p => !p.star && !p.subPair);
-                
-                // Clear existing pairs for fresh optimization
+                // Clear existing pairs and determine full-time players
                 setPlayers(prev => prev.map(p => ({
                     ...p,
-                    subPair: p.star ? null : p.subPair,
-                    subColor: p.star ? null : p.subColor
+                    subPair: null,
+                    subColor: null,
+                    isFullTime: false
                 })));
 
+                // Determine which players should be full-time
+                const fullTimePlayerIds = determineFullTimePlayers(activePlayers);
+                
                 // Generate optimal pairings based on complementary skills
+                const pairablePlayers = activePlayers.filter(p => !p.star && !fullTimePlayerIds.includes(p.id));
                 const pairings = [];
-                const unpaired = [...playersNeedingPairs];
+                const unpaired = [...pairablePlayers];
                 
                 while (unpaired.length >= 2) {
                     let bestPair = null;
@@ -655,12 +728,13 @@ const calculateRotationStrengths = (positions) => {
                             const p1 = unpaired[i];
                             const p2 = unpaired[j];
                             
-                            // Score based on complementary skills
-                            const srComplement = Math.abs(p1.serveReceive - p2.serveReceive);
-                            const settingComplement = Math.abs(p1.setting - p2.setting);
+                            // Score based on complementary skills - prefer different strengths
+                            const srDifference = Math.abs(p1.serveReceive - p2.serveReceive);
+                            const settingDifference = Math.abs(p1.setting - p2.setting);
                             const allAroundSum = p1.allAround + p2.allAround;
                             
-                            const pairScore = allAroundSum + (10 - srComplement) + (10 - settingComplement);
+                            // Higher score for complementary skills
+                            const pairScore = allAroundSum + (srDifference * 2) + (settingDifference * 2);
                             
                             if (pairScore > bestScore) {
                                 bestScore = pairScore;
@@ -676,7 +750,7 @@ const calculateRotationStrengths = (positions) => {
                         
                         pairings.push([p1.id, p2.id]);
                         
-                        // Remove paired players from unpaired list (remove higher index first)
+                        // Remove paired players (remove higher index first)
                         unpaired.splice(Math.max(i, j), 1);
                         unpaired.splice(Math.min(i, j), 1);
                     } else {
@@ -684,45 +758,119 @@ const calculateRotationStrengths = (positions) => {
                     }
                 }
                 
-                // Apply the pairings with colors
-                pairings.forEach(([id1, id2]) => {
-                    createSubPair(id1, id2);
-                });
+                // Apply the pairings with automatic color assignment
+                let colorIndex = 0;
+                const availableColors = getAvailableSubColors();
+                
+                setPlayers(prev => prev.map(p => {
+                    // Mark full-time players
+                    if (fullTimePlayerIds.includes(p.id)) {
+                        return { ...p, isFullTime: true, subPair: null, subColor: null };
+                    }
+                    
+                    // Apply pairings with colors
+                    for (let i = 0; i < pairings.length; i++) {
+                        const [id1, id2] = pairings[i];
+                        if (p.id === id1 || p.id === id2) {
+                            return {
+                                ...p,
+                                subPair: p.id === id1 ? id2 : id1,
+                                subColor: i % availableColors.length,
+                                isFullTime: false
+                            };
+                        }
+                    }
+                    
+                    return p;
+                }));
 
-                // Now optimize starting lineup with substitution awareness
+                // Now optimize starting lineup ensuring no paired players are both on court
                 let bestLineup = null;
                 let bestScore = -1;
                 
-                const playersToPlace = activePlayers.slice(0, 6);
-                const benchPlayers = activePlayers.slice(6);
+                // Create initial lineup ensuring proper substitution pairing
+                const courtPlayers = [];
+                const benchPlayers = [];
                 
-                const permutations = [];
-                const generatePermutations = (arr, current = []) => {
-                    if (current.length === arr.length) {
-                        permutations.push([...current]);
-                        return;
+                // Add all no-sub and full-time players to court first
+                const priorityPlayers = activePlayers.filter(p => 
+                    p.star || fullTimePlayerIds.includes(p.id)
+                );
+                courtPlayers.push(...priorityPlayers);
+                
+                // Add one player from each sub pair to court, other to bench
+                pairings.forEach(([id1, id2]) => {
+                    const p1 = activePlayers.find(p => p.id === id1);
+                    const p2 = activePlayers.find(p => p.id === id2);
+                    
+                    if (!p1 || !p2) return;
+                    
+                    // Start with better serve receive player in back row position
+                    const backRowPlayer = p1.serveReceive >= p2.serveReceive ? p1 : p2;
+                    const frontRowPlayer = backRowPlayer === p1 ? p2 : p1;
+                    
+                    if (courtPlayers.length < 6) {
+                        courtPlayers.push(backRowPlayer);
+                        benchPlayers.push(frontRowPlayer);
+                    } else {
+                        benchPlayers.push(backRowPlayer, frontRowPlayer);
                     }
+                });
+                
+                // Fill remaining court spots if needed
+                const remainingPlayers = activePlayers.filter(p => 
+                    !courtPlayers.includes(p) && !benchPlayers.includes(p)
+                );
+                courtPlayers.push(...remainingPlayers.slice(0, 6 - courtPlayers.length));
+                benchPlayers.push(...remainingPlayers.slice(6 - courtPlayers.length));
+                
+                // Generate permutations of court positions
+                const generatePermutations = (arr, current = []) => {
+                    if (current.length === Math.min(6, arr.length)) {
+                        return [current];
+                    }
+                    const perms = [];
                     for (let i = 0; i < arr.length; i++) {
                         if (!current.includes(arr[i])) {
-                            current.push(arr[i]);
-                            generatePermutations(arr, current);
-                            current.pop();
+                            const newCurrent = [...current, arr[i]];
+                            perms.push(...generatePermutations(arr, newCurrent));
                         }
                     }
+                    return perms;
                 };
                 
-                generatePermutations(playersToPlace);
+                const courtPermutations = generatePermutations(courtPlayers.slice(0, 6));
 
-                for (const perm of permutations) {
+                for (const perm of courtPermutations.slice(0, 50)) { // Limit for performance
                     const testPositions = {
-                        backLeft: perm[0],
-                        frontLeft: perm[1],
-                        frontMiddle: perm[2],
-                        frontRight: perm[3],
-                        backRight: perm[4],
-                        backMiddle: perm[5],
+                        backLeft: perm[0] || null,
+                        frontLeft: perm[1] || null,
+                        frontMiddle: perm[2] || null,
+                        frontRight: perm[3] || null,
+                        backRight: perm[4] || null,
+                        backMiddle: perm[5] || null,
                         bench: benchPlayers
                     };
+
+                    // Verify no paired players are both on court
+                    const courtPlayerIds = [
+                        testPositions.backLeft?.id,
+                        testPositions.frontLeft?.id,
+                        testPositions.frontMiddle?.id,
+                        testPositions.frontRight?.id,
+                        testPositions.backRight?.id,
+                        testPositions.backMiddle?.id
+                    ].filter(Boolean);
+                    
+                    let invalidPairing = false;
+                    for (const [id1, id2] of pairings) {
+                        if (courtPlayerIds.includes(id1) && courtPlayerIds.includes(id2)) {
+                            invalidPairing = true;
+                            break;
+                        }
+                    }
+                    
+                    if (invalidPairing) continue;
 
                     const rotationScores = [];
                     let currentPos = { ...testPositions };
@@ -738,6 +886,7 @@ const calculateRotationStrengths = (positions) => {
                         
                         rotationScores.push(backRowSR + frontRowSetting);
                         
+                        // Simulate rotation
                         const newPos = {
                             backRight: currentPos.backMiddle,
                             frontRight: currentPos.backRight,
@@ -756,8 +905,6 @@ const calculateRotationStrengths = (positions) => {
                         bestScore = avgScore;
                         bestLineup = testPositions;
                     }
-
-                    if (permutations.indexOf(perm) > 200) break;
                 }
 
                 if (bestLineup) {
@@ -767,269 +914,10 @@ const calculateRotationStrengths = (positions) => {
                 
                 setSubstitutionCount(0);
                 setSubHistory([]);
+                setRotationCount(0);
                 setIsOptimizing(false);
             };
-
-            // Substitutional rotation with automatic substitutions
-            const rotateWithSubstitutions = (direction = 'forward') => {
-                if (playMode !== 'substitutional') {
-                    if (direction === 'forward') {
-                        rotateForward();
-                    } else {
-                        rotateBackward();
-                    }
-                    return;
-                }
-
-                const courtPlayers = [
-                    courtPositions.backLeft,
-                    courtPositions.backMiddle,
-                    courtPositions.backRight,
-                    courtPositions.frontLeft,
-                    courtPositions.frontMiddle,
-                    courtPositions.frontRight
-                ].filter(Boolean);
-                
-                if (courtPlayers.length < 6) return;
-
-                let newPositions;
-                let playerRotatingOut;
-                
-                if (direction === 'forward') {
-                    newPositions = {
-                        backRight: courtPositions.backMiddle,
-                        frontRight: courtPositions.backRight,
-                        frontMiddle: courtPositions.frontRight,
-                        frontLeft: courtPositions.frontMiddle,
-                        backLeft: courtPositions.frontLeft,
-                        backMiddle: null, // Will be filled by rotation or substitution
-                        bench: [...courtPositions.bench]
-                    };
-                    playerRotatingOut = courtPositions.backLeft;
-                } else {
-                    newPositions = {
-                        frontLeft: courtPositions.backLeft,
-                        frontMiddle: courtPositions.frontLeft,
-                        frontRight: courtPositions.frontMiddle,
-                        backRight: courtPositions.frontRight,
-                        backLeft: null, // Will be filled by rotation or substitution
-                        backMiddle: courtPositions.backRight,
-                        bench: [...courtPositions.bench]
-                    };
-                    playerRotatingOut = courtPositions.backMiddle;
-                }
-
-                // Check if player rotating out has a sub partner
-                const rotatingOutPlayer = playerRotatingOut;
-                const subPartner = rotatingOutPlayer.subPair ? 
-                    players.find(p => p.id === rotatingOutPlayer.subPair) : null;
-                
-                // Determine who goes into the rotation
-                let playerRotatingIn;
-                let substitutionMade = false;
-                
-                if (rotatingOutPlayer.star) {
-                    // No-sub player stays on court
-                    playerRotatingIn = rotatingOutPlayer;
-                } else if (subPartner && newPositions.bench.includes(subPartner)) {
-                    // Make substitution
-                    playerRotatingIn = subPartner;
-                    substitutionMade = true;
-                    
-                    // Remove sub partner from bench and add rotating out player
-                    newPositions.bench = newPositions.bench.filter(p => p.id !== subPartner.id);
-                    newPositions.bench.push(rotatingOutPlayer);
-                    
-                    setSubstitutionCount(prev => prev + 1);
-                    setSubHistory(prev => [...prev, {
-                        rotation: direction,
-                        out: rotatingOutPlayer.name,
-                        in: subPartner.name,
-                        position: direction === 'forward' ? 'backMiddle' : 'backLeft'
-                    }]);
-                } else {
-                    // No substitution - player continues rotation
-                    playerRotatingIn = rotatingOutPlayer;
-                }
-                
-                // Place the rotating in player
-                if (direction === 'forward') {
-                    newPositions.backMiddle = playerRotatingIn;
-                } else {
-                    newPositions.backLeft = playerRotatingIn;
-                }
-                
-                setCourtPositions(newPositions);
-            };
-// Standard Play Optimization Algorithm for rotational mode
-            const optimizeStandardPlay = async () => {
-                if (playMode === 'substitutional') {
-                    optimizeSubstitutionalPlay();
-                    return;
-                }
-
-                setIsOptimizing(true);
-                
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
-                const activePlayers = players.filter(p => p.active);
-                const starPlayers = activePlayers.filter(p => p.star);
-                
-                if (activePlayers.length < 6) {
-                    setIsOptimizing(false);
-                    return;
-                }
-
-                if (starPlayers.length === 0) {
-                    alert("Please select at least 1 star player to use optimization.");
-                    setIsOptimizing(false);
-                    return;
-                }
-
-                const sortedByDefense = [...activePlayers].sort((a, b) => b.defense - a.defense);
-                const top3Defenders = sortedByDefense.slice(0, 3);
-
-                let allLineups = [];
-
-                const combinations = [];
-                const generateCombinations = (arr, size, start = 0, current = []) => {
-                    if (current.length === size) {
-                        combinations.push([...current]);
-                        return;
-                    }
-                    for (let i = start; i < arr.length; i++) {
-                        current.push(arr[i]);
-                        generateCombinations(arr, size, i + 1, current);
-                        current.pop();
-                    }
-                };
-                
-                generateCombinations(activePlayers, 6);
-
-                const validCombinations = combinations.filter(combo => 
-                    combo.some(player => player.star)
-                );
-
-                for (const combo of validCombinations) {
-                    const permutations = [];
-                    const generatePermutations = (arr, current = []) => {
-                        if (current.length === arr.length) {
-                            permutations.push([...current]);
-                            return;
-                        }
-                        for (let i = 0; i < arr.length; i++) {
-                            if (!current.includes(arr[i])) {
-                                current.push(arr[i]);
-                                generatePermutations(arr, current);
-                                current.pop();
-                            }
-                        }
-                    };
-                    
-                    generatePermutations(combo);
-
-                    for (const perm of permutations) {
-                        const testPositions = {
-                            backLeft: perm[0],
-                            frontLeft: perm[1],
-                            frontMiddle: perm[2],
-                            frontRight: perm[3],
-                            backRight: perm[4],
-                            backMiddle: perm[5],
-                            bench: activePlayers.filter(p => !combo.includes(p))
-                        };
-
-                        if (!checkStarRules(testPositions)) continue;
-
-                        const backRowPlayers = [testPositions.backLeft, testPositions.backMiddle, testPositions.backRight];
-                        const hasTopDefenderInBack = backRowPlayers.some(player => 
-                            top3Defenders.some(topDef => topDef.id === player.id)
-                        );
-
-                        const rotations = calculateRotationStrengths(testPositions);
-                        
-                        let aboveThresholdCount = 0;
-                        let totalDefense = 0;
-                        let servingScore = 0;
-                        let topDefenderInBackCount = 0;
-                        let starBonus = 0;
-
-                        rotations.forEach((rotation, index) => {
-                            if (rotation.frontRowTotal >= minThreshold && rotation.backRowTotal >= minThreshold) {
-                                aboveThresholdCount++;
-                            }
-                            totalDefense += rotation.frontRowTotal + rotation.backRowTotal;
-                            
-                            const rotationWeight = Math.max(1, 10 - index);
-                            servingScore += rotation.serverRating * rotationWeight;
-
-                            let currentPos = { ...testPositions };
-                            for (let r = 0; r < index; r++) {
-                                const newPos = {
-                                    backRight: currentPos.backMiddle,
-                                    frontRight: currentPos.backRight,
-                                    frontMiddle: currentPos.frontRight,
-                                    frontLeft: currentPos.frontMiddle,
-                                    backLeft: currentPos.frontLeft,
-                                    bench: [...currentPos.bench]
-                                };
-                                const newBench = [...currentPos.bench];
-                                if (newBench.length > 0) {
-                                    newBench.push(currentPos.backLeft);
-                                    newPos.backMiddle = newBench.shift();
-                                } else {
-                                    newPos.backMiddle = currentPos.backLeft;
-                                }
-                                newPos.bench = newBench;
-                                currentPos = newPos;
-                            }
-                            
-                            const rotBackRowPlayers = [currentPos.backLeft, currentPos.backMiddle, currentPos.backRight];
-                            if (rotBackRowPlayers.some(player => 
-                                player && top3Defenders.some(topDef => topDef.id === player.id)
-                            )) {
-                                topDefenderInBackCount++;
-                            }
-
-                            const courtPlayers = [currentPos.backLeft, currentPos.frontLeft, currentPos.frontMiddle, 
-                                                currentPos.frontRight, currentPos.backRight, currentPos.backMiddle];
-                            const starsOnCourt = courtPlayers.filter(p => p && p.star).length;
-                            if (starsOnCourt >= 2) starBonus += 5;
-                        });
-
-                        const avgDefense = totalDefense / rotations.length;
-                        const thresholdPercent = aboveThresholdCount / rotations.length;
-                        const topDefenderPercent = topDefenderInBackCount / rotations.length;
-                        
-                        const score = (topDefenderPercent * 150) + (thresholdPercent * 100) + (avgDefense * 2) + (servingScore * 0.1) + starBonus;
-
-                        allLineups.push({
-                            positions: testPositions,
-                            score: score,
-                            thresholdPercent: thresholdPercent,
-                            avgDefense: avgDefense,
-                            topDefenderPercent: topDefenderPercent,
-                            starBonus: starBonus
-                        });
-                    }
-
-                    if (validCombinations.indexOf(combo) > 500) break;
-                }
-
-                allLineups.sort((a, b) => b.score - a.score);
-                const topLineups = allLineups.slice(0, 10);
-                
-                setBestLineups(topLineups);
-                setCurrentLineupIndex(0);
-
-                if (topLineups.length > 0) {
-                    setCourtPositions(topLineups[0].positions);
-                }
-                
-                setIsOptimizing(false);
-            };
-
-            // Serving Priority Optimization with Star Rules
+// Serving Priority Optimization with Star Rules
             const optimizeServingPriority = async () => {
                 if (playMode === 'substitutional') {
                     optimizeSubstitutionalPlay();
@@ -1168,7 +1056,8 @@ const calculateRotationStrengths = (positions) => {
                 
                 setIsOptimizing(false);
             };
-const shuffleStandardPlay = () => {
+
+            const shuffleStandardPlay = () => {
                 if (bestLineups.length === 0) return;
                 
                 const nextIndex = (currentLineupIndex + 1) % bestLineups.length;
@@ -1191,10 +1080,11 @@ const shuffleStandardPlay = () => {
                 };
                 setCourtPositions(newPositions);
                 
-                // Reset substitution tracking for substitutional mode
+                // Reset substitution tracking
                 if (playMode === 'substitutional') {
                     setSubstitutionCount(0);
                     setSubHistory([]);
+                    setRotationCount(0);
                 }
             };
 
@@ -1340,714 +1230,3 @@ const shuffleStandardPlay = () => {
                 setDropZone(null);
             };
 
-            // Calculate current strengths based on play mode
-            const calculateCurrentStrengths = () => {
-                if (playMode === 'rotational') {
-                    return calculateRotationStrengths(courtPositions).slice(0, 6);
-                } else {
-                    // For substitutional mode, calculate serve receive and setting strengths
-                    const rotations = [];
-                    let currentPositions = { ...courtPositions };
-                    
-                    for (let i = 0; i < 6; i++) {
-                        const backRowSR = (currentPositions.backLeft?.serveReceive || 0) + 
-                                         (currentPositions.backMiddle?.serveReceive || 0) + 
-                                         (currentPositions.backRight?.serveReceive || 0);
-                        
-                        const frontRowSetting = (currentPositions.frontLeft?.setting || 0) + 
-                                               (currentPositions.frontMiddle?.setting || 0) + 
-                                               (currentPositions.frontRight?.setting || 0);
-                        
-                        rotations.push({
-                            backRowSR,
-                            frontRowSetting,
-                            serverRating: currentPositions.backLeft?.serving || 0,
-                            rotation: i
-                        });
-                        
-                        const newPositions = {
-                            backRight: currentPositions.backMiddle,
-                            frontRight: currentPositions.backRight,
-                            frontMiddle: currentPositions.frontRight,
-                            frontLeft: currentPositions.frontMiddle,
-                            backLeft: currentPositions.frontLeft,
-                            backMiddle: currentPositions.backLeft,
-                            bench: [...currentPositions.bench]
-                        };
-                        currentPositions = newPositions;
-                    }
-                    
-                    return rotations;
-                }
-            };
-
-            const currentStrengths = calculateCurrentStrengths();
-
-            const PlayerTile = ({ player, position, isOnCourt, benchIndex }) => {
-                const subColorClass = player.subColor !== null ? SUB_COLORS[player.subColor] : '';
-                const isNoSub = playMode === 'substitutional' && player.star;
-                
-                return React.createElement('div', {
-                    className: `p-3 rounded-lg shadow-md cursor-pointer transition-all ${
-                        player.active 
-                            ? (isOnCourt ? 'bg-blue-100 border-2 border-blue-500' : 'bg-green-100 border-2 border-green-400')
-                            : 'bg-gray-200 border-2 border-gray-300'
-                    } ${isNoSub ? 'no-sub-player' : subColorClass} ${
-                        playMode === 'rotational' && player.star ? 'star-player' : ''
-                    } ${draggedPlayer && draggedPlayer.id === player.id ? 'dragging' : ''}`,
-                    draggable: true,
-                    onDragStart: (e) => handleDragStart(e, player),
-                    onClick: () => handleEditPlayer(player)
-                },
-                    React.createElement('div', { className: "flex items-center justify-between" },
-                        React.createElement('div', { className: "font-semibold text-sm" }, player.name),
-                        React.createElement('div', { className: "flex gap-1" },
-                            (playMode === 'rotational' && player.star) && React.createElement('span', { className: "text-yellow-500 text-xs" }, '⭐'),
-                            (playMode === 'substitutional' && player.star) && React.createElement('span', { className: "text-yellow-500 text-xs" }, '🥇'),
-                            (playMode === 'substitutional' && player.subPair) && React.createElement('span', { className: "text-blue-500 text-xs" }, '🔗')
-                        )
-                    ),
-                    position && React.createElement('div', { className: "text-xs text-gray-600 mt-1" }, position)
-                );
-            };
-
-            const DropZone = ({ position, currentPlayer, label }) => (
-                React.createElement('div', {
-                    className: `h-16 border-2 border-dashed rounded-lg flex items-center justify-center transition-all ${
-                        dropZone === position ? 'drop-zone-active' : 'border-gray-300'
-                    }`,
-                    onDragOver: handleDragOver,
-                    onDragEnter: (e) => handleDragEnter(e, position),
-                    onDragLeave: handleDragLeave,
-                    onDrop: (e) => handleDrop(e, position)
-                },
-                    currentPlayer ? 
-                        React.createElement(PlayerTile, { player: currentPlayer, position: label, isOnCourt: true }) :
-                        React.createElement('span', { className: "text-xs text-gray-400" }, "Empty")
-                )
-            );
-const CourtDisplay = () => (
-                React.createElement('div', { className: "bg-orange-50 border-2 border-orange-300 rounded-lg p-4 mb-6" },
-                    React.createElement('div', { className: "text-center text-sm font-semibold mb-4 text-orange-800" },
-                        `${teamName} - Court Layout (${playMode.charAt(0).toUpperCase() + playMode.slice(1)} Mode)`
-                    ),
-                    
-                    // Current rotation strengths
-                    currentStrengths.length > 0 && (
-                        React.createElement('div', { className: "mb-4 p-3 bg-white rounded-lg border" },
-                            React.createElement('div', { className: "text-xs font-semibold mb-2 text-center" }, 
-                                playMode === 'rotational' 
-                                    ? `Row Totals (Defense) - Min: ${minThreshold}`
-                                    : "Row Totals (SR: Serve Receive, Set: Setting)"
-                            ),
-                            React.createElement('div', { className: "flex justify-between text-xs mb-2" },
-                                playMode === 'rotational' ? (
-                                    React.createElement(React.Fragment, {},
-                                        React.createElement('div', {}, 
-                                            `Front: ${currentStrengths[0]?.frontRowTotal || 0}`,
-                                            React.createElement('span', { 
-                                                className: `ml-1 ${(currentStrengths[0]?.frontRowTotal || 0) >= minThreshold ? 'text-green-600' : 'text-red-600'}`
-                                            }, (currentStrengths[0]?.frontRowTotal || 0) >= minThreshold ? '✓' : '✗')
-                                        ),
-                                        React.createElement('div', {}, 
-                                            `Back: ${currentStrengths[0]?.backRowTotal || 0}`,
-                                            React.createElement('span', { 
-                                                className: `ml-1 ${(currentStrengths[0]?.backRowTotal || 0) >= minThreshold ? 'text-green-600' : 'text-red-600'}`
-                                            }, (currentStrengths[0]?.backRowTotal || 0) >= minThreshold ? '✓' : '✗')
-                                        )
-                                    )
-                                ) : (
-                                    React.createElement(React.Fragment, {},
-                                        React.createElement('div', {}, `Back SR: ${currentStrengths[0]?.backRowSR || 0}`),
-                                        React.createElement('div', {}, `Front Set: ${currentStrengths[0]?.frontRowSetting || 0}`)
-                                    )
-                                )
-                            ),
-                            bestLineups.length > 0 && (
-                                React.createElement('div', { className: "text-xs text-center text-gray-600" },
-                                    `Lineup ${currentLineupIndex + 1} of ${bestLineups.length} best options`
-                                )
-                            )
-                        )
-                    ),
-
-                    // Back Row (20 ft line)
-                    React.createElement('div', { className: "border-b-2 border-dashed border-orange-400 pb-3 mb-3" },
-                        React.createElement('div', { className: "text-xs text-center mb-2 text-orange-700" }, "Back Row (20 ft)"),
-                        React.createElement('div', { className: "grid grid-cols-3 gap-2" },
-                            React.createElement('div', { className: "text-center" },
-                                React.createElement('div', { className: "text-xs mb-1" }, "Left (Serve)"),
-                                React.createElement(DropZone, { 
-                                    position: "backLeft", 
-                                    currentPlayer: courtPositions.backLeft, 
-                                    label: "BL" 
-                                })
-                            ),
-                            React.createElement('div', { className: "text-center" },
-                                React.createElement('div', { className: "text-xs mb-1" }, "Middle"),
-                                React.createElement(DropZone, { 
-                                    position: "backMiddle", 
-                                    currentPlayer: courtPositions.backMiddle, 
-                                    label: "BM" 
-                                })
-                            ),
-                            React.createElement('div', { className: "text-center" },
-                                React.createElement('div', { className: "text-xs mb-1" }, "Right"),
-                                React.createElement(DropZone, { 
-                                    position: "backRight", 
-                                    currentPlayer: courtPositions.backRight, 
-                                    label: "BR" 
-                                })
-                            )
-                        )
-                    ),
-
-                    // Front Row (10 ft line)
-                    React.createElement('div', { className: "border-b-2 border-dashed border-orange-400 pb-3 mb-3" },
-                        React.createElement('div', { className: "text-xs text-center mb-2 text-orange-700" }, "Front Row (10 ft)"),
-                        React.createElement('div', { className: "grid grid-cols-3 gap-2" },
-                            React.createElement('div', { className: "text-center" },
-                                React.createElement('div', { className: "text-xs mb-1" }, "Left"),
-                                React.createElement(DropZone, { 
-                                    position: "frontLeft", 
-                                    currentPlayer: courtPositions.frontLeft, 
-                                    label: "FL" 
-                                })
-                            ),
-                            React.createElement('div', { className: "text-center" },
-                                React.createElement('div', { className: "text-xs mb-1" }, "Middle"),
-                                React.createElement(DropZone, { 
-                                    position: "frontMiddle", 
-                                    currentPlayer: courtPositions.frontMiddle, 
-                                    label: "FM" 
-                                })
-                            ),
-                            React.createElement('div', { className: "text-center" },
-                                React.createElement('div', { className: "text-xs mb-1" }, "Right"),
-                                React.createElement(DropZone, { 
-                                    position: "frontRight", 
-                                    currentPlayer: courtPositions.frontRight, 
-                                    label: "FR" 
-                                })
-                            )
-                        )
-                    ),
-
-                    // Net
-                    React.createElement('div', { className: "w-full h-2 bg-black mb-4 rounded" }),
-
-                    // Rotation Controls
-                    React.createElement('div', { className: "flex justify-center gap-4 mb-4" },
-                        React.createElement('button', {
-                            onClick: rotateBackward,
-                            className: "flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed",
-                            disabled: [courtPositions.backLeft, courtPositions.backMiddle, courtPositions.backRight, courtPositions.frontLeft, courtPositions.frontMiddle, courtPositions.frontRight].filter(Boolean).length < 6
-                        },
-                            "⟲ Previous"
-                        ),
-                        React.createElement('button', {
-                            onClick: rotateForward,
-                            className: "flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed",
-                            disabled: [courtPositions.backLeft, courtPositions.backMiddle, courtPositions.backRight, courtPositions.frontLeft, courtPositions.frontMiddle, courtPositions.frontRight].filter(Boolean).length < 6
-                        },
-                            "Next ⟳"
-                        )
-                    )
-                )
-            );
-
-            const BenchDisplay = () => (
-                React.createElement('div', { 
-                    className: "bg-green-50 border-2 border-green-300 rounded-lg p-4 mb-6",
-                    onDragOver: handleDragOver,
-                    onDragEnter: (e) => handleDragEnter(e, 'bench'),
-                    onDragLeave: handleDragLeave,
-                    onDrop: (e) => handleDrop(e, 'bench')
-                },
-                    React.createElement('div', { className: "text-center text-sm font-semibold mb-3 text-green-800" },
-                        playMode === 'substitutional' 
-                            ? "Bench Players (Available for substitution)"
-                            : "Bench Players (Next to rotate in at bottom)"
-                    ),
-                    React.createElement('div', { className: "space-y-2" },
-                        courtPositions.bench.map((player, index) => (
-                            React.createElement('div', { key: player.id, className: "flex items-center gap-2" },
-                                React.createElement('span', { className: "text-xs w-6 text-center" }, 
-                                    playMode === 'rotational' ? courtPositions.bench.length - index : index + 1
-                                ),
-                                React.createElement(PlayerTile, { player: player, isOnCourt: false, benchIndex: index })
-                            )
-                        )),
-                        courtPositions.bench.length === 0 && (
-                            React.createElement('div', { className: "text-center text-gray-500 text-sm" }, "No bench players")
-                        )
-                    )
-                )
-            );
-
-            return React.createElement('div', { className: "max-w-md mx-auto bg-white min-h-screen p-4" },
-                // PWA Install Prompt
-                showInstallPrompt && (
-                    React.createElement('div', { className: "install-prompt mb-4 p-4 text-white rounded-lg flex items-center justify-between" },
-                        React.createElement('div', {},
-                            React.createElement('div', { className: "font-semibold text-sm" }, "Install Volleyball App"),
-                            React.createElement('div', { className: "text-xs opacity-90" }, "Add to home screen for offline use")
-                        ),
-                        React.createElement('div', { className: "flex gap-2" },
-                            React.createElement('button', {
-                                onClick: () => setShowInstallPrompt(false),
-                                className: "px-3 py-1 bg-white bg-opacity-20 rounded text-xs"
-                            }, "Later"),
-                            React.createElement('button', {
-                                onClick: handleInstallClick,
-                                className: "px-3 py-1 bg-white text-purple-600 rounded text-xs font-semibold"
-                            }, "Install")
-                        )
-                    )
-                ),
-
-                // Header with team name, save functionality, and team switcher
-                React.createElement('div', { className: "mb-6" },
-                    React.createElement('div', { className: "flex items-center justify-between mb-2" },
-                        React.createElement('input', {
-                            type: "text",
-                            value: teamName,
-                            onChange: (e) => setTeamName(e.target.value),
-                            className: "text-lg font-bold bg-transparent border-b-2 border-gray-300 focus:border-blue-500 outline-none"
-                        }),
-                        React.createElement('div', { className: "flex gap-2" },
-                            React.createElement('button', { 
-                                onClick: exportData,
-                                className: "p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600",
-                                title: "Export team data"
-                            },
-                                "💾"
-                            ),
-                            React.createElement('label', { 
-                                className: "p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 cursor-pointer",
-                                title: "Import team data"
-                            },
-                                "📂",
-                                React.createElement('input', {
-                                    type: "file",
-                                    accept: ".json",
-                                    onChange: handleImportData,
-                                    className: "hidden"
-                                })
-                            )
-                        )
-                    ),
-                    
-                    // Team Switcher
-                    React.createElement('div', { className: "flex gap-2" },
-                        [2, 3].map(slot => (
-                            React.createElement('button', {
-                                key: slot,
-                                onClick: () => switchTeam(slot),
-                                className: `flex-1 py-2 px-3 rounded text-sm font-medium transition-colors ${
-                                    currentTeamSlot === slot 
-                                        ? 'bg-purple-500 text-white' 
-                                        : 'bg-gray-100 border border-gray-300 text-gray-700 hover:bg-gray-200'
-                                }`
-                            }, getTeamDisplayName(slot))
-                        ))
-                    )
-                ),
-// Play Mode Toggle
-                React.createElement('div', { className: "mb-4 p-3 bg-gray-50 rounded-lg" },
-                    React.createElement('div', { className: "text-sm font-medium mb-2" }, "Play Mode"),
-                    React.createElement('div', { className: "flex gap-2" },
-                        React.createElement('button', {
-                            onClick: () => setPlayMode('rotational'),
-                            className: `flex-1 py-2 px-3 rounded text-sm font-medium transition-colors ${
-                                playMode === 'rotational' 
-                                    ? 'bg-blue-500 text-white' 
-                                    : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                            }`
-                        }, "Rotational"),
-                        React.createElement('button', {
-                            onClick: () => setPlayMode('substitutional'),
-                            className: `flex-1 py-2 px-3 rounded text-sm font-medium transition-colors ${
-                                playMode === 'substitutional' 
-                                    ? 'bg-green-500 text-white' 
-                                    : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                            }`
-                        }, "Substitutional")
-                    )
-                ),
-
-                // Mode-specific info panel
-                playMode === 'rotational' ? (
-                    React.createElement('div', { className: "mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg" },
-                        React.createElement('div', { className: "text-sm font-medium text-yellow-800 mb-1" },
-                            `Star Players: ${players.filter(p => p.star).length}/3`
-                        ),
-                        React.createElement('div', { className: "text-xs text-yellow-700" },
-                            "⭐ Select up to 3 star players for rotational optimization. Algorithms ensure 1+ star always on court and prevent adjacent positioning."
-                        )
-                    )
-                ) : (
-                    React.createElement('div', { className: "mb-4 p-3 bg-green-50 border border-green-200 rounded-lg" },
-                        React.createElement('div', { className: "text-sm font-medium text-green-800 mb-1" },
-                            "Substitutional Play Mode"
-                        ),
-                        React.createElement('div', { className: "text-xs text-green-700 mb-2" },
-                            "🥇 Gold tiles = no substitution partner. Matching colors = paired for substitutions."
-                        ),
-                        React.createElement('div', { className: "text-xs text-green-600" },
-                            `No-Sub Players: ${players.filter(p => p.star).length}/3 | Substitutions Made: ${substitutionCount}`
-                        )
-                    )
-                ),
-
-                // Court Display
-                React.createElement(CourtDisplay),
-                
-                // Bench Display
-                React.createElement(BenchDisplay),
-
-                // Optimization Controls
-                React.createElement('div', { className: "mb-4 p-4 bg-gray-50 rounded-lg" },
-                    playMode === 'rotational' && (
-                        React.createElement('div', { className: "mb-3" },
-                            React.createElement('label', { className: "block text-sm font-medium mb-1" }, 
-                                `Minimum Row Total: ${minThreshold}`
-                            ),
-                            React.createElement('input', {
-                                type: "range",
-                                min: "3",
-                                max: "15",
-                                value: minThreshold,
-                                onChange: (e) => setMinThreshold(parseInt(e.target.value)),
-                                className: "w-full"
-                            }),
-                            React.createElement('div', { className: "flex justify-between text-xs text-gray-500 mt-1" },
-                                React.createElement('span', {}, "3"),
-                                React.createElement('span', {}, "15")
-                            )
-                        )
-                    ),
-                    React.createElement('div', { className: "flex gap-2" },
-                        React.createElement('button', {
-                            onClick: optimizeStandardPlay,
-                            className: `flex-1 p-3 text-white rounded-lg transition-colors ${
-                                isOptimizing ? 'optimizing cursor-not-allowed' : 
-                                playMode === 'rotational' ? 'bg-purple-500 hover:bg-purple-600' : 'bg-green-500 hover:bg-green-600'
-                            }`,
-                            disabled: isOptimizing || players.filter(p => p.active).length < 6
-                        },
-                            isOptimizing ? "Optimizing..." : 
-                            playMode === 'rotational' ? "🎯 Standard Play" : "🎯 Optimize Subs"
-                        ),
-                        playMode === 'rotational' && (
-                            React.createElement('button', {
-                                onClick: optimizeServingPriority,
-                                className: `flex-1 p-3 text-white rounded-lg transition-colors ${
-                                    isOptimizing ? 'optimizing cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600'
-                                }`,
-                                disabled: isOptimizing || players.filter(p => p.active).length < 6
-                            },
-                                isOptimizing ? "Optimizing..." : "⚡ Serving Priority"
-                            )
-                        ),
-                        React.createElement('button', {
-                            onClick: shuffleStandardPlay,
-                            className: "px-3 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400",
-                            disabled: bestLineups.length === 0,
-                            title: "Shuffle through best lineups"
-                        },
-                            "🔀"
-                        )
-                    ),
-                    React.createElement('div', { className: "flex gap-2 mt-2" },
-                        React.createElement('button', {
-                            onClick: autoArrangePlayers,
-                            className: "flex-1 p-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors",
-                            disabled: players.filter(p => p.active).length < 6
-                        },
-                            "📋 Basic Setup"
-                        )
-                    )
-                ),
-
-                // Players List
-                React.createElement('div', { className: "mb-6" },
-                    React.createElement('div', { className: "flex items-center justify-between mb-3" },
-                        React.createElement('h2', { className: "text-lg font-semibold" }, `Team Roster (${players.length}/12)`),
-                        React.createElement('button', {
-                            onClick: () => setShowPlayerForm(true),
-                            className: "flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-                        },
-                            "+ Add Player"
-                        )
-                    ),
-                    
-                    React.createElement('div', { className: "space-y-2" },
-                        players.map(player => {
-                            const subColorClass = player.subColor !== null ? SUB_COLORS[player.subColor] : '';
-                            const isNoSub = playMode === 'substitutional' && player.star;
-                            const subPartner = player.subPair ? players.find(p => p.id === player.subPair) : null;
-                            
-                            return React.createElement('div', { 
-                                key: player.id, 
-                                className: `flex items-center gap-2 p-2 rounded-lg transition-all ${
-                                    isNoSub ? 'no-sub-player' : subColorClass || 'bg-white'
-                                } ${!player.active ? 'opacity-50' : ''}`
-                            },
-                                React.createElement('button', {
-                                    onClick: () => togglePlayerActive(player.id),
-                                    className: `w-4 h-4 rounded border-2 ${
-                                        player.active ? 'bg-green-500 border-green-500' : 'border-gray-300'
-                                    }`
-                                }),
-                                React.createElement('button', {
-                                    onClick: () => togglePlayerStar(player.id),
-                                    className: `w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                                        player.star ? 'bg-yellow-400 border-yellow-500' : 'border-gray-300 hover:border-yellow-400'
-                                    }`,
-                                    title: playMode === 'rotational' ? 'Star Player' : 'No Substitution Partner'
-                                },
-                                    React.createElement('span', { className: "text-xs" }, 
-                                        player.star ? (playMode === 'rotational' ? '⭐' : '🥇') : '☆'
-                                    )
-                                ),
-                                React.createElement('div', { 
-                                    className: "flex-1 cursor-pointer",
-                                    onClick: () => handleEditPlayer(player)
-                                },
-                                    React.createElement('div', { className: "flex items-center justify-between" },
-                                        React.createElement('div', { className: "font-semibold text-sm" }, player.name),
-                                        React.createElement('div', { className: "flex gap-1" },
-                                            subPartner && React.createElement('span', { 
-                                                className: "text-xs text-blue-600",
-                                                title: `Paired with ${subPartner.name}`
-                                            }, '🔗')
-                                        )
-                                    ),
-                                    React.createElement('div', { className: "text-xs text-gray-600" },
-                                        playMode === 'rotational' 
-                                            ? `D:${player.defense} S:${player.serving}`
-                                            : `S:${player.serving} SR:${player.serveReceive} Set:${player.setting} AA:${player.allAround}`
-                                    )
-                                ),
-                                playMode === 'substitutional' && (
-                                    React.createElement('div', { className: "flex gap-1" },
-                                        // Color change buttons for sub pairs
-                                        !player.star && player.subPair && SUB_COLORS.map((colorClass, index) => (
-                                            React.createElement('button', {
-                                                key: index,
-                                                onClick: () => changeSubColor(player.id, index),
-                                                className: `w-4 h-4 rounded border ${colorClass} ${
-                                                    player.subColor === index ? 'border-2 border-black' : 'border-gray-400'
-                                                }`,
-                                                title: `Change to color ${index + 1}`
-                                            })
-                                        )),
-                                        // Unpair button
-                                        !player.star && player.subPair && (
-                                            React.createElement('button', {
-                                                onClick: () => removeSubPair(player.id),
-                                                className: "w-4 h-4 bg-red-500 text-white rounded text-xs flex items-center justify-center",
-                                                title: "Remove substitution pairing"
-                                            }, "×")
-                                        )
-                                    )
-                                )
-                            );
-                        })
-                    )
-                ),
-// Enhanced Player Form Modal with mode-specific attributes
-                showPlayerForm && (
-                    React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" },
-                        React.createElement('div', { className: "bg-white rounded-lg p-6 w-80 mx-4 max-h-screen overflow-y-auto" },
-                            React.createElement('h3', { className: "text-lg font-semibold mb-4" },
-                                editingPlayer ? 'Edit Player' : 'Add New Player'
-                            ),
-                            
-                            React.createElement('div', { className: "space-y-4" },
-                                React.createElement('div', {},
-                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Player Name"),
-                                    React.createElement('input', {
-                                        type: "text",
-                                        value: playerForm.name,
-                                        onChange: (e) => setPlayerForm({...playerForm, name: e.target.value}),
-                                        className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none",
-                                        placeholder: "Enter player name"
-                                    })
-                                ),
-                                
-                                // Defense Rating - Only show in rotational mode
-                                playMode === 'rotational' && React.createElement('div', {},
-                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Defense (1-5)"),
-                                    React.createElement('input', {
-                                        type: "range",
-                                        min: "1",
-                                        max: "5",
-                                        value: playerForm.defense,
-                                        onChange: (e) => setPlayerForm({...playerForm, defense: parseInt(e.target.value)}),
-                                        className: "w-full"
-                                    }),
-                                    React.createElement('div', { className: "text-center font-semibold text-sm" }, playerForm.defense)
-                                ),
-                                
-                                // Serving Rating
-                                React.createElement('div', {},
-                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Serving (1-5)"),
-                                    React.createElement('input', {
-                                        type: "range",
-                                        min: "1",
-                                        max: "5",
-                                        value: playerForm.serving,
-                                        onChange: (e) => setPlayerForm({...playerForm, serving: parseInt(e.target.value)}),
-                                        className: "w-full"
-                                    }),
-                                    React.createElement('div', { className: "text-center font-semibold text-sm" }, playerForm.serving)
-                                ),
-
-                                // Serve Receive Rating - Only show in substitutional mode
-                                playMode === 'substitutional' && React.createElement('div', {},
-                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Serve Receive - SR (1-5)"),
-                                    React.createElement('input', {
-                                        type: "range",
-                                        min: "1",
-                                        max: "5",
-                                        value: playerForm.serveReceive,
-                                        onChange: (e) => setPlayerForm({...playerForm, serveReceive: parseInt(e.target.value)}),
-                                        className: "w-full"
-                                    }),
-                                    React.createElement('div', { className: "text-center font-semibold text-sm" }, playerForm.serveReceive)
-                                ),
-
-                                // Setting Rating - Only show in substitutional mode
-                                playMode === 'substitutional' && React.createElement('div', {},
-                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Setting (1-5)"),
-                                    React.createElement('input', {
-                                        type: "range",
-                                        min: "1",
-                                        max: "5",
-                                        value: playerForm.setting,
-                                        onChange: (e) => setPlayerForm({...playerForm, setting: parseInt(e.target.value)}),
-                                        className: "w-full"
-                                    }),
-                                    React.createElement('div', { className: "text-center font-semibold text-sm" }, playerForm.setting)
-                                ),
-
-                                // All Around Rating - Only show in substitutional mode
-                                playMode === 'substitutional' && React.createElement('div', {},
-                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "All Around (1-5)"),
-                                    React.createElement('input', {
-                                        type: "range",
-                                        min: "1",
-                                        max: "5",
-                                        value: playerForm.allAround,
-                                        onChange: (e) => setPlayerForm({...playerForm, allAround: parseInt(e.target.value)}),
-                                        className: "w-full"
-                                    }),
-                                    React.createElement('div', { className: "text-center font-semibold text-sm" }, playerForm.allAround)
-                                ),
-
-                                // Star Player / No Sub Toggle
-                                React.createElement('div', { className: "flex items-center gap-2" },
-                                    React.createElement('label', { className: "block text-sm font-medium" }, 
-                                        playMode === 'rotational' ? 'Star Player' : 'No Substitution Partner'
-                                    ),
-                                    React.createElement('button', {
-                                        onClick: () => setPlayerForm({...playerForm, star: !playerForm.star}),
-                                        className: `w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                                            playerForm.star ? 'bg-yellow-400 border-yellow-500' : 'border-gray-300 hover:border-yellow-400'
-                                        }`,
-                                        type: "button"
-                                    },
-                                        React.createElement('span', { className: "text-xs" }, 
-                                            playerForm.star ? (playMode === 'rotational' ? '⭐' : '🥇') : '☆'
-                                        )
-                                    )
-                                )
-                            ),
-                            
-                            React.createElement('div', { className: "flex gap-3 mt-6" },
-                                React.createElement('button', {
-                                    onClick: () => {
-                                        setShowPlayerForm(false);
-                                        setEditingPlayer(null);
-                                        setPlayerForm({ 
-                                            name: '', 
-                                            defense: 3, 
-                                            serving: 3, 
-                                            serveReceive: 3, 
-                                            setting: 3, 
-                                            allAround: 3, 
-                                            active: true, 
-                                            star: false 
-                                        });
-                                    },
-                                    className: "flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                                }, "Cancel"),
-                                React.createElement('button', {
-                                    onClick: editingPlayer ? handleUpdatePlayer : handleAddPlayer,
-                                    className: "flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600",
-                                    disabled: !playerForm.name.trim()
-                                }, editingPlayer ? 'Update Player' : 'Add Player')
-                            )
-                        )
-                    )
-                ),
-
-                // Substitution History Panel (for substitutional mode)
-                playMode === 'substitutional' && subHistory.length > 0 && (
-                    React.createElement('div', { className: "mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg" },
-                        React.createElement('h3', { className: "text-sm font-semibold mb-2 text-blue-800" }, "Substitution History"),
-                        React.createElement('div', { className: "space-y-1 max-h-32 overflow-y-auto" },
-                            subHistory.slice(-5).map((sub, index) => (
-                                React.createElement('div', { key: index, className: "text-xs text-blue-700" },
-                                    `${sub.rotation === 'forward' ? '→' : '←'} ${sub.out} → ${sub.in} (${sub.position})`
-                                )
-                            ))
-                        ),
-                        React.createElement('button', {
-                            onClick: () => {
-                                setSubHistory([]);
-                                setSubstitutionCount(0);
-                            },
-                            className: "mt-2 text-xs text-blue-600 hover:text-blue-800"
-                        }, "Clear History")
-                    )
-                ),
-
-                // Manual Sub Pairing Tool (for substitutional mode)
-                playMode === 'substitutional' && (
-                    React.createElement('div', { className: "mb-6 p-3 bg-purple-50 border border-purple-200 rounded-lg" },
-                        React.createElement('h3', { className: "text-sm font-semibold mb-2 text-purple-800" }, "Manual Substitution Pairing"),
-                        React.createElement('div', { className: "text-xs text-purple-700 mb-2" },
-                            "Click two players to create a substitution pair, or drag and drop players to swap positions."
-                        ),
-                        React.createElement('div', { className: "flex gap-2 flex-wrap" },
-                            players.filter(p => p.active && !p.star && !p.subPair).map(player => (
-                                React.createElement('button', {
-                                    key: player.id,
-                                    onClick: () => {
-                                        const selectedUnpaired = players.filter(p => p.active && !p.star && !p.subPair && p.id !== player.id);
-                                        if (selectedUnpaired.length > 0) {
-                                            createSubPair(player.id, selectedUnpaired[0].id);
-                                        }
-                                    },
-                                    className: "px-2 py-1 bg-purple-200 text-purple-800 rounded text-xs hover:bg-purple-300",
-                                    disabled: players.filter(p => p.active && !p.star && !p.subPair).length < 2
-                                },
-                                    player.name
-                                )
-                            ))
-                        ),
-                        players.filter(p => p.active && !p.star && !p.subPair).length === 0 && (
-                            React.createElement('div', { className: "text-xs text-gray-500" }, "All eligible players are already paired or marked as no-sub")
-                        )
-                    )
-                )
-            );
-        };
-
-        ReactDOM.render(React.createElement(VolleyballApp), document.getElementById('root'));
-    </script>
-</body>
-</html>
