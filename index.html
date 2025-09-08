@@ -1230,3 +1230,255 @@
                 setDropZone(null);
             };
 
+// Calculate current strengths based on play mode
+            const calculateCurrentStrengths = () => {
+                if (playMode === 'rotational') {
+                    return calculateRotationStrengths(courtPositions).slice(0, 6);
+                } else {
+                    // For substitutional mode, calculate serve receive and setting strengths
+                    const rotations = [];
+                    let currentPositions = { ...courtPositions };
+                    
+                    for (let i = 0; i < 6; i++) {
+                        const backRowSR = (currentPositions.backLeft?.serveReceive || 0) + 
+                                         (currentPositions.backMiddle?.serveReceive || 0) + 
+                                         (currentPositions.backRight?.serveReceive || 0);
+                        
+                        const frontRowSetting = (currentPositions.frontLeft?.setting || 0) + 
+                                               (currentPositions.frontMiddle?.setting || 0) + 
+                                               (currentPositions.frontRight?.setting || 0);
+                        
+                        rotations.push({
+                            backRowSR,
+                            frontRowSetting,
+                            serverRating: currentPositions.backLeft?.serving || 0,
+                            rotation: i
+                        });
+                        
+                        const newPositions = {
+                            backRight: currentPositions.backMiddle,
+                            frontRight: currentPositions.backRight,
+                            frontMiddle: currentPositions.frontRight,
+                            frontLeft: currentPositions.frontMiddle,
+                            backLeft: currentPositions.frontLeft,
+                            backMiddle: currentPositions.backLeft,
+                            bench: [...currentPositions.bench]
+                        };
+                        currentPositions = newPositions;
+                    }
+                    
+                    return rotations;
+                }
+            };
+
+            const currentStrengths = calculateCurrentStrengths();
+
+            const PlayerTile = ({ player, position, isOnCourt, benchIndex }) => {
+                const subColorClass = player.subColor !== null ? SUB_COLORS[player.subColor] : '';
+                const isNoSub = (playMode === 'substitutional' && player.star) || player.isFullTime;
+                
+                return React.createElement('div', {
+                    className: `p-3 rounded-lg shadow-md cursor-pointer transition-all ${
+                        player.active 
+                            ? (isOnCourt ? 'bg-blue-100 border-2 border-blue-500' : 'bg-green-100 border-2 border-green-400')
+                            : 'bg-gray-200 border-2 border-gray-300'
+                    } ${isNoSub ? 'no-sub-player' : subColorClass} ${
+                        playMode === 'rotational' && player.star ? 'star-player' : ''
+                    } ${draggedPlayer && draggedPlayer.id === player.id ? 'dragging' : ''}`,
+                    draggable: true,
+                    onDragStart: (e) => handleDragStart(e, player),
+                    onClick: () => handleEditPlayer(player)
+                },
+                    React.createElement('div', { className: "flex items-center justify-between" },
+                        React.createElement('div', { className: "font-semibold text-sm" }, player.name),
+                        React.createElement('div', { className: "flex gap-1" },
+                            (playMode === 'rotational' && player.star) && React.createElement('span', { className: "text-yellow-500 text-xs" }, '⭐'),
+                            (playMode === 'substitutional' && (player.star || player.isFullTime)) && React.createElement('span', { className: "text-yellow-500 text-xs" }, '⭐'),
+                            (playMode === 'substitutional' && player.subPair) && React.createElement('span', { className: "text-blue-500 text-xs" }, '🔗')
+                        )
+                    ),
+                    position && React.createElement('div', { className: "text-xs text-gray-600 mt-1" }, position)
+                );
+            };
+
+            const DropZone = ({ position, currentPlayer, label }) => (
+                React.createElement('div', {
+                    className: `h-16 border-2 border-dashed rounded-lg flex items-center justify-center transition-all ${
+                        dropZone === position ? 'drop-zone-active' : 'border-gray-300'
+                    }`,
+                    onDragOver: handleDragOver,
+                    onDragEnter: (e) => handleDragEnter(e, position),
+                    onDragLeave: handleDragLeave,
+                    onDrop: (e) => handleDrop(e, position)
+                },
+                    currentPlayer ? 
+                        React.createElement(PlayerTile, { player: currentPlayer, position: label, isOnCourt: true }) :
+                        React.createElement('span', { className: "text-xs text-gray-400" }, "Empty")
+                )
+            );
+
+            const CourtDisplay = () => (
+                React.createElement('div', { className: "bg-orange-50 border-2 border-orange-300 rounded-lg p-4 mb-6" },
+                    React.createElement('div', { className: "text-center text-sm font-semibold mb-4 text-orange-800" },
+                        `${teamName} - Court Layout (${playMode.charAt(0).toUpperCase() + playMode.slice(1)} Mode)`
+                    ),
+                    
+                    // Substitution Counter for substitutional mode
+                    playMode === 'substitutional' && (
+                        React.createElement('div', { className: "mb-4 p-2 substitution-counter text-center text-sm" },
+                            `Substitutions: ${substitutionCount} | Rotations: ${rotationCount}`
+                        )
+                    ),
+                    
+                    // Current rotation strengths
+                    currentStrengths.length > 0 && (
+                        React.createElement('div', { className: "mb-4 p-3 bg-white rounded-lg border" },
+                            React.createElement('div', { className: "text-xs font-semibold mb-2 text-center" }, 
+                                playMode === 'rotational' 
+                                    ? `Row Totals (Defense) - Min: ${minThreshold}`
+                                    : "Row Totals (SR: Serve Receive, Set: Setting)"
+                            ),
+                            React.createElement('div', { className: "flex justify-between text-xs mb-2" },
+                                playMode === 'rotational' ? (
+                                    React.createElement(React.Fragment, {},
+                                        React.createElement('div', {}, 
+                                            `Front: ${currentStrengths[0]?.frontRowTotal || 0}`,
+                                            React.createElement('span', { 
+                                                className: `ml-1 ${(currentStrengths[0]?.frontRowTotal || 0) >= minThreshold ? 'text-green-600' : 'text-red-600'}`
+                                            }, (currentStrengths[0]?.frontRowTotal || 0) >= minThreshold ? '✓' : '✗')
+                                        ),
+                                        React.createElement('div', {}, 
+                                            `Back: ${currentStrengths[0]?.backRowTotal || 0}`,
+                                            React.createElement('span', { 
+                                                className: `ml-1 ${(currentStrengths[0]?.backRowTotal || 0) >= minThreshold ? 'text-green-600' : 'text-red-600'}`
+                                            }, (currentStrengths[0]?.backRowTotal || 0) >= minThreshold ? '✓' : '✗')
+                                        )
+                                    )
+                                ) : (
+                                    React.createElement(React.Fragment, {},
+                                        React.createElement('div', {}, `Back SR: ${currentStrengths[0]?.backRowSR || 0}`),
+                                        React.createElement('div', {}, `Front Set: ${currentStrengths[0]?.frontRowSetting || 0}`)
+                                    )
+                                )
+                            ),
+                            bestLineups.length > 0 && (
+                                React.createElement('div', { className: "text-xs text-center text-gray-600" },
+                                    `Lineup ${currentLineupIndex + 1} of ${bestLineups.length} best options`
+                                )
+                            )
+                        )
+                    ),
+
+                    // Back Row (20 ft line)
+                    React.createElement('div', { className: "border-b-2 border-dashed border-orange-400 pb-3 mb-3" },
+                        React.createElement('div', { className: "text-xs text-center mb-2 text-orange-700" }, "Back Row (20 ft)"),
+                        React.createElement('div', { className: "grid grid-cols-3 gap-2" },
+                            React.createElement('div', { className: "text-center" },
+                                React.createElement('div', { className: "text-xs mb-1" }, "Left (Serve)"),
+                                React.createElement(DropZone, { 
+                                    position: "backLeft", 
+                                    currentPlayer: courtPositions.backLeft, 
+                                    label: "BL" 
+                                })
+                            ),
+                            React.createElement('div', { className: "text-center" },
+                                React.createElement('div', { className: "text-xs mb-1" }, "Middle"),
+                                React.createElement(DropZone, { 
+                                    position: "backMiddle", 
+                                    currentPlayer: courtPositions.backMiddle, 
+                                    label: "BM" 
+                                })
+                            ),
+                            React.createElement('div', { className: "text-center" },
+                                React.createElement('div', { className: "text-xs mb-1" }, "Right"),
+                                React.createElement(DropZone, { 
+                                    position: "backRight", 
+                                    currentPlayer: courtPositions.backRight, 
+                                    label: "BR" 
+                                })
+                            )
+                        )
+                    ),
+
+                    // Front Row (10 ft line)
+                    React.createElement('div', { className: "border-b-2 border-dashed border-orange-400 pb-3 mb-3" },
+                        React.createElement('div', { className: "text-xs text-center mb-2 text-orange-700" }, "Front Row (10 ft)"),
+                        React.createElement('div', { className: "grid grid-cols-3 gap-2" },
+                            React.createElement('div', { className: "text-center" },
+                                React.createElement('div', { className: "text-xs mb-1" }, "Left"),
+                                React.createElement(DropZone, { 
+                                    position: "frontLeft", 
+                                    currentPlayer: courtPositions.frontLeft, 
+                                    label: "FL" 
+                                })
+                            ),
+                            React.createElement('div', { className: "text-center" },
+                                React.createElement('div', { className: "text-xs mb-1" }, "Middle"),
+                                React.createElement(DropZone, { 
+                                    position: "frontMiddle", 
+                                    currentPlayer: courtPositions.frontMiddle, 
+                                    label: "FM" 
+                                })
+                            ),
+                            React.createElement('div', { className: "text-center" },
+                                React.createElement('div', { className: "text-xs mb-1" }, "Right"),
+                                React.createElement(DropZone, { 
+                                    position: "frontRight", 
+                                    currentPlayer: courtPositions.frontRight, 
+                                    label: "FR" 
+                                })
+                            )
+                        )
+                    ),
+
+                    // Net
+                    React.createElement('div', { className: "w-full h-2 bg-black mb-4 rounded" }),
+
+                    // Rotation Controls
+                    React.createElement('div', { className: "flex justify-center gap-4 mb-4" },
+                        React.createElement('button', {
+                            onClick: rotateBackward,
+                            className: "flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed",
+                            disabled: [courtPositions.backLeft, courtPositions.backMiddle, courtPositions.backRight, courtPositions.frontLeft, courtPositions.frontMiddle, courtPositions.frontRight].filter(Boolean).length < 6
+                        },
+                            "⟲ Previous"
+                        ),
+                        React.createElement('button', {
+                            onClick: rotateForward,
+                            className: "flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed",
+                            disabled: [courtPositions.backLeft, courtPositions.backMiddle, courtPositions.backRight, courtPositions.frontLeft, courtPositions.frontMiddle, courtPositions.frontRight].filter(Boolean).length < 6
+                        },
+                            "Next ⟳"
+                        )
+                    )
+                )
+            );
+
+            const BenchDisplay = () => (
+                React.createElement('div', { 
+                    className: "bg-green-50 border-2 border-green-300 rounded-lg p-4 mb-6",
+                    onDragOver: handleDragOver,
+                    onDragEnter: (e) => handleDragEnter(e, 'bench'),
+                    onDragLeave: handleDragLeave,
+                    onDrop: (e) => handleDrop(e, 'bench')
+                },
+                    React.createElement('div', { className: "text-center text-sm font-semibold mb-3 text-green-800" },
+                        playMode === 'substitutional' 
+                            ? "Bench Players (Available for substitution)"
+                            : "Bench Players (Next to rotate in at bottom)"
+                    ),
+                    React.createElement('div', { className: "space-y-2" },
+                        courtPositions.bench.map((player, index) => (
+                            React.createElement('div', { key: player.id, className: "flex items-center gap-2" },
+                                React.createElement('span', { className: "text-xs w-6 text-center" }, 
+                                    playMode === 'rotational' ? courtPositions.bench.length - index : index + 1
+                                ),
+                                React.createElement(PlayerTile, { player: player, isOnCourt: false, benchIndex: index })
+                            )
+                        )),
+                        courtPositions.bench.length === 0 && (
+                            React.createElement('div', { className: "text-center text-gray-500 text-sm" }, "No bench players")
+                        )
+                    )
+                )
+            );
