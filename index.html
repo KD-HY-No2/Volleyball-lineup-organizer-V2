@@ -2119,7 +2119,6 @@ playMode === 'substitutional' && (
                         const subColorClass = player1.subColor !== null ? SUB_COLORS[player1.subColor] : '';
                         
                         return React.createElement('div', {
-                        return React.createElement('div', {
                             key: `pair-${player1.id}-${player2.id}`,
                             className: `flex items-center gap-1 p-2 rounded-lg border-2 transition-all ${subColorClass} ${
                                 draggedPlayer && (draggedPlayer.id === player1.id || draggedPlayer.id === player2.id) ? 'opacity-50 scale-95' : ''
