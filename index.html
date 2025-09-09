@@ -749,29 +749,49 @@ const rotateWithSubstitutions = (direction) => {
     const substitutions = [];
     
     Object.keys(newPositions).forEach(position => {
-        if (position === 'bench') return;
-        
-        const currentPlayer = newPositions[position];
-        if (!currentPlayer || !currentPlayer.subPair) return;
-        
-        const partner = players.find(p => p.id === currentPlayer.subPair);
-        if (!partner) return;
-        
-        const isBackRow = isBackRowPosition(position);
-        const shouldSubstitute = isBackRow ? 
-            partner.serveReceive > currentPlayer.serveReceive :
-            partner.setting > currentPlayer.setting;
-        
-        // FIXED: Always substitute based on position requirements, not just when "better"
-        if (shouldSubstitute && newPositions.bench.includes(partner)) {
-            substitutions.push({
-                position,
-                outPlayer: currentPlayer,
-                inPlayer: partner,
-                reason: isBackRow ? 'Better SR for back row' : 'Better setting for front row'
-            });
+    if (position === 'bench') return;
+    
+    const currentPlayer = newPositions[position];
+    if (!currentPlayer || !currentPlayer.subPair) return;
+    
+    const partner = players.find(p => p.id === currentPlayer.subPair);
+    if (!partner) return;
+    
+    const isBackRow = isBackRowPosition(position);
+    
+    // Enhanced logic: If one player is better at both skills, prioritize serve receive
+    // This ensures the stronger player plays back row and weaker player gets front row time
+    let shouldSubstitute;
+    
+    if (isBackRow) {
+        // Back row: substitute if partner has better serve receive
+        shouldSubstitute = partner.serveReceive > currentPlayer.serveReceive;
+    } else {
+        // Front row: substitute if partner has better setting, 
+        // BUT if current player is better at both SR and setting, keep them out (fair play)
+        if (currentPlayer.serveReceive > partner.serveReceive && currentPlayer.setting > partner.setting) {
+            // Current player is better at both - substitute them out for fair play
+            shouldSubstitute = true;
+        } else {
+            // Normal case - substitute if partner has better setting
+            shouldSubstitute = partner.setting > currentPlayer.setting;
         }
-    });
+    }
+    
+    if (shouldSubstitute && newPositions.bench.includes(partner)) {
+        const reason = isBackRow ? 
+            'Better SR for back row' : 
+            (currentPlayer.serveReceive > partner.serveReceive && currentPlayer.setting > partner.setting ? 
+                'Fair play rotation' : 'Better setting for front row');
+                
+        substitutions.push({
+            position,
+            outPlayer: currentPlayer,
+            inPlayer: partner,
+            reason: reason
+        });
+    }
+});
 
     // Apply substitutions
     substitutions.forEach(sub => {
