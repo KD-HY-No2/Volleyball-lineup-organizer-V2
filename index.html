@@ -719,87 +719,91 @@ const handleUpdatePlayer = () => {
                 setIsOptimizing(false);
             };
 
-            // FIXED: Rotation with automatic substitutions based on position requirements
-            const rotateWithSubstitutions = (direction) => {
-                let newPositions;
-                
-                if (direction === 'forward') {
-                    newPositions = {
-                        backRight: courtPositions.backMiddle,
-                        frontRight: courtPositions.backRight,
-                        frontMiddle: courtPositions.frontRight,
-                        frontLeft: courtPositions.frontMiddle,
-                        backLeft: courtPositions.frontLeft,
-                        backMiddle: courtPositions.backLeft,
-                        bench: [...courtPositions.bench]
-                    };
-                } else {
-                    newPositions = {
-                        frontLeft: courtPositions.backLeft,
-                        frontMiddle: courtPositions.frontLeft,
-                        frontRight: courtPositions.frontMiddle,
-                        backRight: courtPositions.frontRight,
-                        backMiddle: courtPositions.backRight,
-                        backLeft: courtPositions.backMiddle,
-                        bench: [...courtPositions.bench]
-                    };
-                }
+// FIXED: Rotation with automatic substitutions based on position requirements
+const rotateWithSubstitutions = (direction) => {
+    let newPositions;
+    
+    if (direction === 'forward') {
+        newPositions = {
+            backRight: courtPositions.backMiddle,
+            frontRight: courtPositions.backRight,
+            frontMiddle: courtPositions.frontRight,
+            frontLeft: courtPositions.frontMiddle,
+            backLeft: courtPositions.frontLeft,
+            backMiddle: courtPositions.backLeft,
+            bench: [...courtPositions.bench]
+        };
+    } else {
+        newPositions = {
+            frontLeft: courtPositions.backLeft,
+            frontMiddle: courtPositions.frontLeft,
+            frontRight: courtPositions.frontMiddle,
+            backRight: courtPositions.frontRight,
+            backMiddle: courtPositions.backRight,
+            backLeft: courtPositions.backMiddle,
+            bench: [...courtPositions.bench]
+        };
+    }
 
-                // FIXED: Check for required substitutions after rotation
-                const substitutions = [];
-                
-                Object.keys(newPositions).forEach(position => {
-                    if (position === 'bench') return;
-                    
-                    const currentPlayer = newPositions[position];
-                    if (!currentPlayer || !currentPlayer.subPair) return;
-                    
-                    const partner = players.find(p => p.id === currentPlayer.subPair);
-                    if (!partner) return;
-                    
-                    const isBackRow = isBackRowPosition(position);
-                    const shouldSubstitute = isBackRow ? 
-                        partner.serveReceive > currentPlayer.serveReceive :
-                        partner.setting > currentPlayer.setting;
-                    
-                    // FIXED: Always substitute based on position requirements, not just when "better"
-                    if (shouldSubstitute && newPositions.bench.includes(partner)) {
-                        substitutions.push({
-                            position,
-                            outPlayer: currentPlayer,
-                            inPlayer: partner,
-                            reason: isBackRow ? 'Better SR for back row' : 'Better setting for front row'
-                        });
-                    }
-                });
+    // FIXED: Check for required substitutions after rotation
+    const substitutions = [];
+    
+    Object.keys(newPositions).forEach(position => {
+        if (position === 'bench') return;
+        
+        const currentPlayer = newPositions[position];
+        if (!currentPlayer || !currentPlayer.subPair) return;
+        
+        const partner = players.find(p => p.id === currentPlayer.subPair);
+        if (!partner) return;
+        
+        const isBackRow = isBackRowPosition(position);
+        const shouldSubstitute = isBackRow ? 
+            partner.serveReceive > currentPlayer.serveReceive :
+            partner.setting > currentPlayer.setting;
+        
+        // FIXED: Always substitute based on position requirements, not just when "better"
+        if (shouldSubstitute && newPositions.bench.includes(partner)) {
+            substitutions.push({
+                position,
+                outPlayer: currentPlayer,
+                inPlayer: partner,
+                reason: isBackRow ? 'Better SR for back row' : 'Better setting for front row'
+            });
+        }
+    });
 
-                // Apply substitutions
-                substitutions.forEach(sub => {
-                    newPositions[sub.position] = sub.inPlayer;
-                    
-                    // Remove incoming player from bench
-                    const benchIndex = newPositions.bench.findIndex(p => p.id === sub.inPlayer.id);
-                    if (benchIndex >= 0) {
-                        newPositions.bench.splice(benchIndex, 1);
-                    }
-                    
-                    // Add outgoing player to bench
-                    newPositions.bench.push(sub.outPlayer);
-                    
-                    // Update tracking
-                    setSubstitutionCount(prev => prev + 1);
-                    setSubHistory(prev => [...prev, {
-                        rotation: rotationCount + 1,
-                        out: sub.outPlayer.name,
-                        in: sub.inPlayer.name,
-                        reason: sub.reason
-                    }]);
-                });
+    // Apply substitutions
+    substitutions.forEach(sub => {
+        newPositions[sub.position] = sub.inPlayer;
+        
+        // Remove incoming player from bench
+        const benchIndex = newPositions.bench.findIndex(p => p.id === sub.inPlayer.id);
+        if (benchIndex >= 0) {
+            newPositions.bench.splice(benchIndex, 1);
+        }
+        
+        // Add outgoing player to bench
+        newPositions.bench.push(sub.outPlayer);
+        
+        // Update tracking - add for forward, subtract for backward
+        if (direction === 'forward') {
+            setSubstitutionCount(prev => prev + 1);
+            setSubHistory(prev => [...prev, {
+                rotation: rotationCount + (direction === 'forward' ? 1 : -1),
+                out: sub.outPlayer.name,
+                in: sub.inPlayer.name,
+                reason: sub.reason
+            }]);
+        } else {
+            setSubstitutionCount(prev => Math.max(0, prev - 1));
+            setSubHistory(prev => prev.slice(0, -1)); // Remove last entry
+        }
+    });
 
-                setCourtPositions(newPositions);
-                setRotationCount(prev => prev + 1);
-            };
-
+    setCourtPositions(newPositions);
+    setRotationCount(prev => direction === 'forward' ? prev + 1 : Math.max(0, prev - 1));
+};
             // Export team data
             const exportData = () => {
                 const data = {
