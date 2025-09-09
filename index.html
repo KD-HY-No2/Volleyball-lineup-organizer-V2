@@ -111,7 +111,6 @@
         const { useState, useEffect } = React;
 
         const VolleyballApp = () => {
-            // PWA Install State
             const [deferredPrompt, setDeferredPrompt] = useState(null);
             const [showInstallPrompt, setShowInstallPrompt] = useState(false);
 
@@ -229,6 +228,14 @@
                 })
             );
 
+            // Enhanced color assignment utility with better contrast
+            const SUB_COLORS = ['sub-color-red', 'sub-color-blue', 'sub-color-green', 'sub-color-purple', 'sub-color-orange', 'sub-color-pink'];
+// Get available sub colors
+            const getAvailableSubColors = () => {
+                const usedColors = new Set(players.map(p => p.subColor).filter(p => p !== null));
+                return SUB_COLORS.filter((_, index) => !usedColors.has(index));
+            };
+
             // Fixed team switching with proper slot rotation
             const switchTeam = (targetSlot) => {
                 // Save current team data before switching
@@ -308,7 +315,6 @@
 
             useEffect(() => {
                 saveToStorage('volleyball_teamName', teamName);
-                // Update team name in slots
                 setTeamSlots(prev => {
                     const updated = {
                         ...prev,
@@ -375,15 +381,6 @@
                     }
                     setDeferredPrompt(null);
                 }
-            };
-
-            // Enhanced color assignment utility with better contrast
-            const SUB_COLORS = ['sub-color-red', 'sub-color-blue', 'sub-color-green', 'sub-color-purple', 'sub-color-orange', 'sub-color-pink'];
-
-            // Get available sub colors
-            const getAvailableSubColors = () => {
-                const usedColors = new Set(players.map(p => p.subColor).filter(p => p !== null));
-                return SUB_COLORS.filter((_, index) => !usedColors.has(index));
             };
 
             // Enhanced player management functions
@@ -555,8 +552,7 @@
                 setBestLineups([]);
                 setCurrentLineupIndex(0);
             };
-
-            // IMPROVED SUBSTITUTIONAL PAIRING ALGORITHM
+// IMPROVED SUBSTITUTIONAL PAIRING ALGORITHM
             const optimizeSubstitutionalPlay = async () => {
                 setIsOptimizing(true);
                 
@@ -593,7 +589,7 @@
                     for (let iteration = 0; iteration < 5; iteration++) {
                         const testPlayers = [...updatedPlayers];
                         const pairs = [];
-                        const unpaired = eligibleForPairing.filter(p => !p.star);
+                        const unpaired = [...eligibleForPairing];
                         
                         // Shuffle for different combinations
                         if (iteration > 0) {
@@ -840,8 +836,7 @@
                 setSubHistory([]);
                 setRotationCount(0);
             };
-
-            // FIXED: Enhanced rotation with automatic substitutions
+// FIXED: Enhanced rotation with automatic substitutions
             const rotateWithSubstitutions = (direction) => {
                 let newPositions;
                 
@@ -923,24 +918,6 @@
                 }
 
                 setCourtPositions(newPositions);
-            };
-
-            // Determine which players should be full-time (no subs) based on roster size
-            const determineFullTimePlayers = (activePlayers) => {
-                if (activePlayers.length <= 6) {
-                    return activePlayers.map(p => p.id);
-                }
-                
-                const availableForPairing = activePlayers.length - (activePlayers.filter(p => p.star).length);
-                const needFullTime = availableForPairing % 2;
-                
-                if (needFullTime === 0) return [];
-                
-                const sortedByAllAround = activePlayers
-                    .filter(p => !p.star)
-                    .sort((a, b) => b.allAround - a.allAround);
-                    
-                return sortedByAllAround.slice(0, needFullTime).map(p => p.id);
             };
 
             // Export team data
@@ -1322,8 +1299,7 @@
                 newPositions.bench = newBench;
                 setCourtPositions(newPositions);
             };
-
-            // Drag and Drop handlers
+// Drag and Drop handlers
             const handleDragStart = (e, player) => {
                 setDraggedPlayer(player);
                 e.dataTransfer.effectAllowed = 'move';
@@ -1530,64 +1506,40 @@
                         )
                     ),
 
-                    // Back Row (20 ft line)
+                    // Back Row
                     React.createElement('div', { className: "border-b-2 border-dashed border-orange-400 pb-3 mb-3" },
                         React.createElement('div', { className: "text-xs text-center mb-2 text-orange-700" }, "Back Row (20 ft)"),
                         React.createElement('div', { className: "grid grid-cols-3 gap-2" },
                             React.createElement('div', { className: "text-center" },
                                 React.createElement('div', { className: "text-xs mb-1" }, "Left (Serve)"),
-                                React.createElement(DropZone, { 
-                                    position: "backLeft", 
-                                    currentPlayer: courtPositions.backLeft, 
-                                    label: "BL" 
-                                })
+                                React.createElement(DropZone, { position: "backLeft", currentPlayer: courtPositions.backLeft, label: "BL" })
                             ),
                             React.createElement('div', { className: "text-center" },
                                 React.createElement('div', { className: "text-xs mb-1" }, "Middle"),
-                                React.createElement(DropZone, { 
-                                    position: "backMiddle", 
-                                    currentPlayer: courtPositions.backMiddle, 
-                                    label: "BM" 
-                                })
+                                React.createElement(DropZone, { position: "backMiddle", currentPlayer: courtPositions.backMiddle, label: "BM" })
                             ),
                             React.createElement('div', { className: "text-center" },
                                 React.createElement('div', { className: "text-xs mb-1" }, "Right"),
-                                React.createElement(DropZone, { 
-                                    position: "backRight", 
-                                    currentPlayer: courtPositions.backRight, 
-                                    label: "BR" 
-                                })
+                                React.createElement(DropZone, { position: "backRight", currentPlayer: courtPositions.backRight, label: "BR" })
                             )
                         )
                     ),
 
-                    // Front Row (10 ft line)
+                    // Front Row
                     React.createElement('div', { className: "border-b-2 border-dashed border-orange-400 pb-3 mb-3" },
                         React.createElement('div', { className: "text-xs text-center mb-2 text-orange-700" }, "Front Row (10 ft)"),
                         React.createElement('div', { className: "grid grid-cols-3 gap-2" },
                             React.createElement('div', { className: "text-center" },
                                 React.createElement('div', { className: "text-xs mb-1" }, "Left"),
-                                React.createElement(DropZone, { 
-                                    position: "frontLeft", 
-                                    currentPlayer: courtPositions.frontLeft, 
-                                    label: "FL" 
-                                })
+                                React.createElement(DropZone, { position: "frontLeft", currentPlayer: courtPositions.frontLeft, label: "FL" })
                             ),
                             React.createElement('div', { className: "text-center" },
                                 React.createElement('div', { className: "text-xs mb-1" }, "Middle"),
-                                React.createElement(DropZone, { 
-                                    position: "frontMiddle", 
-                                    currentPlayer: courtPositions.frontMiddle, 
-                                    label: "FM" 
-                                })
+                                React.createElement(DropZone, { position: "frontMiddle", currentPlayer: courtPositions.frontMiddle, label: "FM" })
                             ),
                             React.createElement('div', { className: "text-center" },
                                 React.createElement('div', { className: "text-xs mb-1" }, "Right"),
-                                React.createElement(DropZone, { 
-                                    position: "frontRight", 
-                                    currentPlayer: courtPositions.frontRight, 
-                                    label: "FR" 
-                                })
+                                React.createElement(DropZone, { position: "frontRight", currentPlayer: courtPositions.frontRight, label: "FR" })
                             )
                         )
                     ),
@@ -1601,16 +1553,12 @@
                             onClick: rotateBackward,
                             className: "flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed",
                             disabled: [courtPositions.backLeft, courtPositions.backMiddle, courtPositions.backRight, courtPositions.frontLeft, courtPositions.frontMiddle, courtPositions.frontRight].filter(Boolean).length < 6
-                        },
-                            "⟲ Previous"
-                        ),
+                        }, "⟲ Previous"),
                         React.createElement('button', {
                             onClick: rotateForward,
                             className: "flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed",
                             disabled: [courtPositions.backLeft, courtPositions.backMiddle, courtPositions.backRight, courtPositions.frontLeft, courtPositions.frontMiddle, courtPositions.frontRight].filter(Boolean).length < 6
-                        },
-                            "Next ⟳"
-                        )
+                        }, "Next ⟳")
                     )
                 )
             );
@@ -1624,9 +1572,7 @@
                     onDrop: (e) => handleDrop(e, 'bench')
                 },
                     React.createElement('div', { className: "text-center text-sm font-semibold mb-3 text-green-800" },
-                        playMode === 'substitutional' 
-                            ? "Bench Players (Available for substitution)"
-                            : "Bench Players (Next to rotate in at bottom)"
+                        playMode === 'substitutional' ? "Bench Players (Available for substitution)" : "Bench Players (Next to rotate in at bottom)"
                     ),
                     React.createElement('div', { className: "space-y-2" },
                         courtPositions.bench.map((player, index) => (
@@ -1643,8 +1589,7 @@
                     )
                 )
             );
-
-            return React.createElement('div', { className: "max-w-md mx-auto bg-white min-h-screen p-4" },
+return React.createElement('div', { className: "max-w-md mx-auto bg-white min-h-screen p-4" },
                 // PWA Install Prompt
                 showInstallPrompt && (
                     React.createElement('div', { className: "install-prompt mb-4 p-4 text-white rounded-lg flex items-center justify-between" },
@@ -1665,7 +1610,7 @@
                     )
                 ),
 
-                // Header with fixed team switcher
+                // Header
                 React.createElement('div', { className: "mb-6" },
                     React.createElement('div', { className: "flex items-center justify-between mb-2" },
                         React.createElement('input', {
@@ -1679,9 +1624,7 @@
                                 onClick: exportData,
                                 className: "p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600",
                                 title: "Export team data"
-                            },
-                                "💾"
-                            ),
+                            }, "💾"),
                             React.createElement('label', { 
                                 className: "p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 cursor-pointer",
                                 title: "Import team data"
@@ -1696,7 +1639,6 @@
                             )
                         )
                     ),
-                    // Fixed Team Switcher
                     React.createElement('div', { className: "flex gap-2" },
                         ['team1', 'team2', 'team3'].filter(slot => slot !== teamSlots.active).map(slot => (
                             React.createElement('button', {
@@ -1715,30 +1657,26 @@
                         React.createElement('button', {
                             onClick: () => setPlayMode('rotational'),
                             className: `flex-1 py-2 px-3 rounded text-sm font-medium transition-colors ${
-                                playMode === 'rotational' 
-                                    ? 'bg-blue-500 text-white' 
-                                    : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                                playMode === 'rotational' ? 'bg-blue-500 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
                             }`
                         }, "Rotational"),
                         React.createElement('button', {
                             onClick: () => setPlayMode('substitutional'),
                             className: `flex-1 py-2 px-3 rounded text-sm font-medium transition-colors ${
-                                playMode === 'substitutional' 
-                                    ? 'bg-green-500 text-white' 
-                                    : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                                playMode === 'substitutional' ? 'bg-green-500 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
                             }`
                         }, "Substitutional")
                     )
                 ),
 
-                // Mode-specific info panel
+                // Mode info panel
                 playMode === 'rotational' ? (
                     React.createElement('div', { className: "mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg" },
                         React.createElement('div', { className: "text-sm font-medium text-yellow-800 mb-1" },
                             `Star Players: ${players.filter(p => p.star).length}/3`
                         ),
                         React.createElement('div', { className: "text-xs text-yellow-700" },
-                            "⭐ Select up to 3 star players for rotational optimization. Algorithms ensure 1+ star always on court and prevent adjacent positioning."
+                            "⭐ Select up to 3 star players for rotational optimization."
                         )
                     )
                 ) : (
@@ -1755,10 +1693,7 @@
                     )
                 ),
 
-                // Court Display
                 React.createElement(CourtDisplay),
-                
-                // Bench Display
                 React.createElement(BenchDisplay),
 
                 // Optimization Controls
@@ -1790,10 +1725,7 @@
                                 playMode === 'rotational' ? 'bg-purple-500 hover:bg-purple-600' : 'bg-green-500 hover:bg-green-600'
                             }`,
                             disabled: isOptimizing || players.filter(p => p.active).length < 6
-                        },
-                            isOptimizing ? "Optimizing..." : 
-                            playMode === 'rotational' ? "🎯 Standard Play" : "🎯 Optimize Subs"
-                        ),
+                        }, isOptimizing ? "Optimizing..." : playMode === 'rotational' ? "🎯 Standard Play" : "🎯 Optimize Subs"),
                         playMode === 'rotational' && (
                             React.createElement('button', {
                                 onClick: optimizeServingPriority,
@@ -1801,27 +1733,21 @@
                                     isOptimizing ? 'optimizing cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600'
                                 }`,
                                 disabled: isOptimizing || players.filter(p => p.active).length < 6
-                            },
-                                isOptimizing ? "Optimizing..." : "⚡ Serving Priority"
-                            )
+                            }, isOptimizing ? "Optimizing..." : "⚡ Serving Priority")
                         ),
                         React.createElement('button', {
                             onClick: playMode === 'substitutional' ? shuffleSubstitutionalPlay : shuffleStandardPlay,
                             className: "px-3 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400",
                             disabled: bestLineups.length === 0,
                             title: "Shuffle through best lineups"
-                        },
-                            "🔀"
-                        )
+                        }, "🔀")
                     ),
                     React.createElement('div', { className: "flex gap-2 mt-2" },
                         React.createElement('button', {
                             onClick: autoArrangePlayers,
                             className: "flex-1 p-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors",
                             disabled: players.filter(p => p.active).length < 6
-                        },
-                            playMode === 'substitutional' ? "🔄 Reset" : "📋 Basic Setup"
-                        )
+                        }, playMode === 'substitutional' ? "🔄 Reset" : "📋 Basic Setup")
                     )
                 ),
 
@@ -1832,9 +1758,7 @@
                         React.createElement('button', {
                             onClick: () => setShowPlayerForm(true),
                             className: "flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-                        },
-                            "+ Add Player"
-                        )
+                        }, "+ Add Player")
                     ),
                     
                     React.createElement('div', { className: "space-y-2" },
@@ -1862,9 +1786,7 @@
                                     }`,
                                     title: playMode === 'rotational' ? 'Star Player' : 'No Substitution Partner'
                                 },
-                                    React.createElement('span', { className: "text-xs" }, 
-                                        player.star ? '⭐' : '☆'
-                                    )
+                                    React.createElement('span', { className: "text-xs" }, player.star ? '⭐' : '☆')
                                 ),
                                 React.createElement('div', { 
                                     className: "flex-1 cursor-pointer",
@@ -1891,7 +1813,6 @@
                                 ),
                                 playMode === 'substitutional' && (
                                     React.createElement('div', { className: "flex gap-1" },
-                                        // Color change buttons for sub pairs
                                         !isNoSub && player.subPair && SUB_COLORS.map((colorClass, index) => (
                                             React.createElement('button', {
                                                 key: index,
@@ -1902,7 +1823,12 @@
                                                 title: `Change to color ${index + 1}`
                                             })
                                         )),
-                                        // Unpair button
+                                        !isNoSub && player.subPair && (
+                                            React.createElement('button', {
+                                                onClick: () => removeSubPair(player.id),
+                                                className: "w-4 h-4 bg-red-500 text-white rounded text-xs flex items-center justify-center",
+                                                title: "Remove substitution pairing"
+                                            }, "×")
                                         )
                                     )
                                 )
@@ -1911,7 +1837,7 @@
                     )
                 ),
 
-                // Enhanced Player Form Modal with mode-specific attributes
+                // Player Form Modal
                 showPlayerForm && (
                     React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" },
                         React.createElement('div', { className: "bg-white rounded-lg p-6 w-80 mx-4 max-h-screen overflow-y-auto" },
@@ -1931,7 +1857,6 @@
                                     })
                                 ),
                                 
-                                // Defense Rating - Only show in rotational mode
                                 playMode === 'rotational' && React.createElement('div', {},
                                     React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Defense (1-5)"),
                                     React.createElement('input', {
@@ -1945,7 +1870,6 @@
                                     React.createElement('div', { className: "text-center font-semibold text-sm" }, playerForm.defense)
                                 ),
                                 
-                                // Serving Rating
                                 React.createElement('div', {},
                                     React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Serving (1-5)"),
                                     React.createElement('input', {
@@ -1959,7 +1883,6 @@
                                     React.createElement('div', { className: "text-center font-semibold text-sm" }, playerForm.serving)
                                 ),
 
-                                // Serve Receive Rating - Only show in substitutional mode
                                 playMode === 'substitutional' && React.createElement('div', {},
                                     React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Serve Receive - SR (1-5)"),
                                     React.createElement('input', {
@@ -1973,7 +1896,6 @@
                                     React.createElement('div', { className: "text-center font-semibold text-sm" }, playerForm.serveReceive)
                                 ),
 
-                                // Setting Rating - Only show in substitutional mode
                                 playMode === 'substitutional' && React.createElement('div', {},
                                     React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Setting (1-5)"),
                                     React.createElement('input', {
@@ -1987,7 +1909,6 @@
                                     React.createElement('div', { className: "text-center font-semibold text-sm" }, playerForm.setting)
                                 ),
 
-                                // All Around Rating - Only show in substitutional mode
                                 playMode === 'substitutional' && React.createElement('div', {},
                                     React.createElement('label', { className: "block text-sm font-medium mb-1" }, "All Around (1-5)"),
                                     React.createElement('input', {
@@ -2001,7 +1922,6 @@
                                     React.createElement('div', { className: "text-center font-semibold text-sm" }, playerForm.allAround)
                                 ),
 
-                                // Star Player / No Sub Toggle
                                 React.createElement('div', { className: "flex items-center gap-2" },
                                     React.createElement('label', { className: "block text-sm font-medium" }, 
                                         playMode === 'rotational' ? 'Star Player' : 'No Substitution Partner'
@@ -2048,7 +1968,7 @@
                     )
                 ),
 
-                // Enhanced Substitution History Panel
+                // Substitution History Panel
                 playMode === 'substitutional' && subHistory.length > 0 && (
                     React.createElement('div', { className: "mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg" },
                         React.createElement('h3', { className: "text-sm font-semibold mb-2 text-blue-800" }, "Recent Substitutions"),
@@ -2070,7 +1990,7 @@
                     )
                 ),
 
-                // Enhanced Manual Sub Pairing Tool
+                // Manual Sub Pairing Tool
                 playMode === 'substitutional' && (
                     React.createElement('div', { className: "mb-6 p-3 bg-purple-50 border border-purple-200 rounded-lg" },
                         React.createElement('h3', { className: "text-sm font-semibold mb-2 text-purple-800" }, "Substitution Management"),
@@ -2078,7 +1998,6 @@
                             "Auto-optimization creates optimal pairs. Manual pairing available below."
                         ),
                         
-                        // Show current pairing status
                         React.createElement('div', { className: "mb-3" },
                             React.createElement('div', { className: "text-xs font-medium text-purple-800 mb-1" }, "Current Status:"),
                             React.createElement('div', { className: "text-xs text-purple-700" },
@@ -2086,7 +2005,6 @@
                             )
                         ),
                         
-                        // Manual pairing for unpaired players
                         players.filter(p => p.active && !p.star && !p.isFullTime && !p.subPair).length > 0 && (
                             React.createElement('div', {},
                                 React.createElement('div', { className: "text-xs font-medium text-purple-800 mb-1" }, "Unpaired Players:"),
@@ -2124,4 +2042,3 @@
     </script>
 </body>
 </html>
-                                        )
