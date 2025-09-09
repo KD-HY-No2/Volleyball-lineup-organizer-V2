@@ -2105,8 +2105,8 @@ playMode === 'substitutional' && (
             )
         ),
 
-        // Delete zone (appears when dragging paired players)
-        (draggedPlayer && (draggedPlayer.subPair || draggedPlayer.isPairTile)) && (
+        // Delete zone (appears when dragging paired players)  
+        (draggedPlayer && (draggedPlayer.subPair || draggedPlayer.isPairTile || (draggedPlayer.id && players.find(p => p.id === draggedPlayer.id)?.subPair))) && (
             React.createElement('div', {
                 className: "mb-3 p-4 border-2 border-dashed border-red-400 bg-red-50 rounded-lg flex items-center justify-center transition-all",
                 onDragOver: (e) => e.preventDefault(),
@@ -2146,7 +2146,11 @@ playMode === 'substitutional' && (
                             draggable: true,
                             onDragStart: (e) => {
                                 // Mark this as a pair tile drag for proper delete zone detection
-                                setDraggedPlayer({ ...player1, isPairTile: true });
+                                setDraggedPlayer({ 
+                                    ...player1, 
+                                    isPairTile: true,
+                                    subPair: player1.subPair || player2.id // Ensure subPair is preserved
+                                });
                                 e.dataTransfer.effectAllowed = 'move';
                             },
                             onDragEnd: () => setDraggedPlayer(null)
