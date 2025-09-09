@@ -2105,26 +2105,6 @@ playMode === 'substitutional' && (
             )
         ),
 
-        // Delete zone (appears when dragging paired players)  
-        (draggedPlayer && (draggedPlayer.subPair || draggedPlayer.isPairTile || (draggedPlayer.id && players.find(p => p.id === draggedPlayer.id)?.subPair))) && (
-            React.createElement('div', {
-                className: "mb-3 p-4 border-2 border-dashed border-red-400 bg-red-50 rounded-lg flex items-center justify-center transition-all",
-                onDragOver: (e) => e.preventDefault(),
-                onDragEnter: (e) => e.preventDefault(),
-                onDrop: (e) => {
-                    e.preventDefault();
-                    if (draggedPlayer && (draggedPlayer.subPair || draggedPlayer.isPairTile)) {
-                        removeSubPair(draggedPlayer.id);
-                        setDraggedPlayer(null);
-                    }
-                }
-            },
-                React.createElement('div', { className: "text-center text-red-600" },
-                    React.createElement('div', { className: "text-2xl mb-1" }, "🗑️"),
-                    React.createElement('div', { className: "text-xs" }, "Drop to unlink pair")
-                )
-            )
-        ),
         
         // Current pairs display
         Math.floor(players.filter(p => p.subPair).length / 2) > 0 && (
@@ -2139,26 +2119,23 @@ playMode === 'substitutional' && (
                         const subColorClass = player1.subColor !== null ? SUB_COLORS[player1.subColor] : '';
                         
                         return React.createElement('div', {
+                        return React.createElement('div', {
                             key: `pair-${player1.id}-${player2.id}`,
-                            className: `flex items-center gap-1 p-2 rounded-lg border-2 cursor-move transition-all ${subColorClass} ${
+                            className: `flex items-center gap-1 p-2 rounded-lg border-2 transition-all ${subColorClass} ${
                                 draggedPlayer && (draggedPlayer.id === player1.id || draggedPlayer.id === player2.id) ? 'opacity-50 scale-95' : ''
                             }`,
-                            style: { touchAction: 'none' },
-                            draggable: true,
-                            onDragStart: (e) => {
-                                // Mark this as a pair tile drag for proper delete zone detection
-                                setDraggedPlayer({ 
-                                    ...player1, 
-                                    isPairTile: true,
-                                    subPair: player1.subPair || player2.id // Ensure subPair is preserved
-                                });
-                                e.dataTransfer.effectAllowed = 'move';
-                            },
-                            onDragEnd: () => setDraggedPlayer(null)
                         },
                             React.createElement('div', { className: "text-xs font-medium" }, player1.name),
                             React.createElement('div', { className: "text-blue-500 text-xs" }, '🔗'),
-                            React.createElement('div', { className: "text-xs font-medium" }, player2.name)
+                            React.createElement('div', { className: "text-xs font-medium" }, player2.name),
+                            React.createElement('button', {
+                                onClick: (e) => {
+                                    e.stopPropagation();
+                                    removeSubPair(player1.id);
+                                },
+                                className: "ml-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600",
+                                title: "Unlink pair"
+                            }, "×")
                         );
                     }).filter(Boolean)
                 )
