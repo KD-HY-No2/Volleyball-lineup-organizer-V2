@@ -1746,10 +1746,95 @@ const rotateWithSubstitutions = (direction) => {
             setSubHistory([]);
             setRotationCount(0);
         } : autoArrangePlayers,
-        className: "flex-1 p-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors",
+        className: `${playMode === 'substitutional' ? 'flex-1' : 'flex-1'} p-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors`,
         disabled: playMode === 'rotational' && players.filter(p => p.active).length < 6
     },
         playMode === 'substitutional' ? "🔄 Reset" : "📋 Basic Setup"
+    ),
+    
+    // Manual Setup button for substitutional mode
+    playMode === 'substitutional' && (
+        React.createElement('button', {
+            onClick: () => {
+                const activePlayers = players.filter(p => p.active);
+                if (activePlayers.length < 6) return;
+
+                const courtPlayers = [];
+                const benchPlayers = [];
+                
+                // Process players in roster order, respecting sub pairings
+                const processedPlayers = new Set();
+                
+                activePlayers.forEach(player => {
+                    if (processedPlayers.has(player.id)) return;
+                    
+                    if (player.subPair) {
+                        const partner = players.find(p => p.id === player.subPair);
+                        if (partner && !processedPlayers.has(partner.id)) {
+                            // For sub pairs, put the better serve receive player on court
+                            const courtPlayer = player.serveReceive >= partner.serveReceive ? player : partner;
+                            const benchPlayer = courtPlayer === player ? partner : player;
+                            
+                            if (courtPlayers.length < 6) {
+                                courtPlayers.push(courtPlayer);
+                                benchPlayers.push(benchPlayer);
+                            } else {
+                                benchPlayers.push(courtPlayer, benchPlayer);
+                            }
+                            
+                            processedPlayers.add(player.id);
+                            processedPlayers.add(partner.id);
+                        }
+                    } else {
+                        // No sub pair - add to court or bench
+                        if (courtPlayers.length < 6) {
+                            courtPlayers.push(player);
+                        } else {
+                            benchPlayers.push(player);
+                        }
+                        processedPlayers.add(player.id);
+                    }
+                });
+
+                // Fill remaining court spots if needed
+                while (courtPlayers.length < 6 && benchPlayers.length > 0) {
+                    courtPlayers.push(benchPlayers.shift());
+                }
+
+                // Arrange court positions based on serve receive and setting strengths
+                if (courtPlayers.length >= 6) {
+                    const sortedBySR = [...courtPlayers].sort((a, b) => b.serveReceive - a.serveReceive);
+                    const sortedBySetting = [...courtPlayers].sort((a, b) => b.setting - a.setting);
+                    
+                    const newPositions = {
+                        // Back row: best serve receive players
+                        backLeft: sortedBySR[0],
+                        backMiddle: sortedBySR[1], 
+                        backRight: sortedBySR[2],
+                        // Front row: best setting players from remaining
+                        frontLeft: sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3],
+                        frontMiddle: sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p) && 
+                                    p !== (sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3])) || sortedBySetting[4],
+                        frontRight: courtPlayers.find(p => ![
+                            sortedBySR[0], sortedBySR[1], sortedBySR[2],
+                            sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3],
+                            sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p) && 
+                                p !== (sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3])) || sortedBySetting[4]
+                        ].includes(p)) || sortedBySetting[5],
+                        bench: benchPlayers
+                    };
+                    
+                    setCourtPositions(newPositions);
+                    setSubstitutionCount(0);
+                    setSubHistory([]);
+                    setRotationCount(0);
+                }
+            },
+            className: "flex-1 p-3 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors",
+            disabled: players.filter(p => p.active).length < 6
+        },
+            "⚙️ Manual Setup"
+        )
     )
 )
                 ),
