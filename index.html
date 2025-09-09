@@ -72,12 +72,12 @@
             border: 3px solid #ffd700 !important;
         }
 
-        .sub-color-1 { background-color: #fef3c7 !important; border: 3px solid #f59e0b !important; }
-        .sub-color-2 { background-color: #dcfce7 !important; border: 3px solid #22c55e !important; }
-        .sub-color-3 { background-color: #dbeafe !important; border: 3px solid #3b82f6 !important; }
-        .sub-color-4 { background-color: #f3e8ff !important; border: 3px solid #8b5cf6 !important; }
-        .sub-color-5 { background-color: #fce7f3 !important; border: 3px solid #ec4899 !important; }
-        .sub-color-6 { background-color: #fef2f2 !important; border: 3px solid #ef4444 !important; }
+        .sub-color-red { background-color: #fecaca !important; border: 3px solid #ef4444 !important; }
+        .sub-color-blue { background-color: #dbeafe !important; border: 3px solid #3b82f6 !important; }
+        .sub-color-green { background-color: #dcfce7 !important; border: 3px solid #22c55e !important; }
+        .sub-color-purple { background-color: #f3e8ff !important; border: 3px solid #8b5cf6 !important; }
+        .sub-color-orange { background-color: #fed7aa !important; border: 3px solid #f97316 !important; }
+        .sub-color-pink { background-color: #fce7f3 !important; border: 3px solid #ec4899 !important; }
 
         .install-prompt {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -228,7 +228,8 @@
                     bench: []
                 })
             );
-// Fixed team switching with proper slot rotation
+
+            // Fixed team switching with proper slot rotation
             const switchTeam = (targetSlot) => {
                 // Save current team data before switching
                 saveToStorage('volleyball_players', players);
@@ -377,7 +378,7 @@
             };
 
             // Enhanced color assignment utility with better contrast
-            const SUB_COLORS = ['sub-color-1', 'sub-color-2', 'sub-color-3', 'sub-color-4', 'sub-color-5', 'sub-color-6'];
+            const SUB_COLORS = ['sub-color-red', 'sub-color-blue', 'sub-color-green', 'sub-color-purple', 'sub-color-orange', 'sub-color-pink'];
 
             // Get available sub colors
             const getAvailableSubColors = () => {
@@ -425,7 +426,8 @@
                 });
                 setShowPlayerForm(true);
             };
-const handleUpdatePlayer = () => {
+
+            const handleUpdatePlayer = () => {
                 setPlayers(players.map(p => 
                     p.id === editingPlayer ? { 
                         ...p, 
@@ -524,34 +526,43 @@ const handleUpdatePlayer = () => {
                 return ['backLeft', 'backMiddle', 'backRight'].includes(position);
             };
 
-            // Determine which players should be full-time (no subs) based on roster size
-            const determineFullTimePlayers = (activePlayers) => {
-                if (activePlayers.length <= 6) {
-                    // Not enough players for any subs - all are full-time
-                    return activePlayers.map(p => p.id);
-                }
-                
-                const availableForPairing = activePlayers.length - (activePlayers.filter(p => p.star).length);
-                const needFullTime = availableForPairing % 2; // Odd number means someone needs to be full-time
-                
-                if (needFullTime === 0) return [];
-                
-                // Select highest all-around rated players as full-time
-                const sortedByAllAround = activePlayers
-                    .filter(p => !p.star) // Stars are already marked as no-sub
-                    .sort((a, b) => b.allAround - a.allAround);
-                    
-                return sortedByAllAround.slice(0, needFullTime).map(p => p.id);
+            // RESET FUNCTION FOR SUBSTITUTION MODE
+            const resetSubstitutionalSetup = () => {
+                // Clear all substitution pairings and recommendations
+                setPlayers(prev => prev.map(p => ({
+                    ...p,
+                    subPair: null,
+                    subColor: null,
+                    isFullTime: false
+                })));
+
+                // Clear court positions and put all active players on bench
+                const activePlayers = players.filter(p => p.active);
+                setCourtPositions({
+                    backLeft: null,
+                    frontLeft: null,
+                    frontMiddle: null,
+                    frontRight: null,
+                    backRight: null,
+                    backMiddle: null,
+                    bench: activePlayers
+                });
+
+                // Reset tracking
+                setSubstitutionCount(0);
+                setSubHistory([]);
+                setRotationCount(0);
+                setBestLineups([]);
+                setCurrentLineupIndex(0);
             };
 
-            // FIXED: Enhanced substitutional play optimization algorithm
+            // IMPROVED SUBSTITUTIONAL PAIRING ALGORITHM
             const optimizeSubstitutionalPlay = async () => {
                 setIsOptimizing(true);
                 
                 await new Promise(resolve => setTimeout(resolve, 100));
                 
                 const activePlayers = players.filter(p => p.active);
-                const noSubPlayers = activePlayers.filter(p => p.star);
                 
                 if (activePlayers.length < 6) {
                     alert("Need at least 6 active players for optimization.");
@@ -559,158 +570,198 @@ const handleUpdatePlayer = () => {
                     return;
                 }
 
-                // Step 1: Determine full-time players
-                const fullTimePlayerIds = determineFullTimePlayers(activePlayers);
-                
-                // Step 2: Generate optimal pairings based on complementary skills
-                const pairablePlayers = activePlayers.filter(p => !p.star && !fullTimePlayerIds.includes(p.id));
-                const pairings = [];
-                const unpaired = [...pairablePlayers];
-                
-                while (unpaired.length >= 2) {
-                    let bestPair = null;
-                    let bestScore = -1;
+                // Calculate averages for skill-based pairing
+                const avgServeReceive = activePlayers.reduce((sum, p) => sum + p.serveReceive, 0) / activePlayers.length;
+                const avgSetting = activePlayers.reduce((sum, p) => sum + p.setting, 0) / activePlayers.length;
+
+                // Clear existing pairings
+                const updatedPlayers = activePlayers.map(p => ({
+                    ...p,
+                    subPair: null,
+                    subColor: null,
+                    isFullTime: false
+                }));
+
+                // Mark star players as no-sub
+                const noSubPlayers = updatedPlayers.filter(p => p.star);
+                const eligibleForPairing = updatedPlayers.filter(p => !p.star);
+
+                // Generate multiple lineup options
+                const generateOptimizedLineups = () => {
+                    const lineups = [];
                     
-                    for (let i = 0; i < unpaired.length - 1; i++) {
-                        for (let j = i + 1; j < unpaired.length; j++) {
-                            const p1 = unpaired[i];
-                            const p2 = unpaired[j];
-                            
-                            // Score based on complementary skills - prefer different strengths
-                            const srDifference = Math.abs(p1.serveReceive - p2.serveReceive);
-                            const settingDifference = Math.abs(p1.setting - p2.setting);
-                            const allAroundSum = p1.allAround + p2.allAround;
-                            
-                            // Higher score for complementary skills
-                            const pairScore = allAroundSum + (srDifference * 2) + (settingDifference * 2);
-                            
-                            if (pairScore > bestScore) {
-                                bestScore = pairScore;
-                                bestPair = [i, j];
+                    for (let iteration = 0; iteration < 5; iteration++) {
+                        const testPlayers = [...updatedPlayers];
+                        const pairs = [];
+                        const unpaired = eligibleForPairing.filter(p => !p.star);
+                        
+                        // Shuffle for different combinations
+                        if (iteration > 0) {
+                            for (let i = unpaired.length - 1; i > 0; i--) {
+                                const j = Math.floor(Math.random() * (i + 1));
+                                [unpaired[i], unpaired[j]] = [unpaired[j], unpaired[i]];
                             }
                         }
-                    }
-                    
-                    if (bestPair) {
-                        const [i, j] = bestPair;
-                        const p1 = unpaired[i];
-                        const p2 = unpaired[j];
-                        
-                        pairings.push([p1.id, p2.id]);
-                        
-                        // Remove paired players (remove higher index first)
-                        unpaired.splice(Math.max(i, j), 1);
-                        unpaired.splice(Math.min(i, j), 1);
-                    } else {
-                        break;
-                    }
-                }
 
-                // Step 3: FIXED - Apply the pairings with automatic color assignment and proper persistence
-                let colorIndex = 0;
-                const updatedPlayers = [...players];
-                
-                // Clear existing pairs first
-                updatedPlayers.forEach(p => {
-                    p.subPair = null;
-                    p.subColor = null;
-                    p.isFullTime = false;
-                });
-                
-                // Mark full-time players
-                fullTimePlayerIds.forEach(id => {
-                    const player = updatedPlayers.find(p => p.id === id);
-                    if (player) player.isFullTime = true;
-                });
-                
-                // Apply pairings with colors
-                pairings.forEach(([id1, id2], index) => {
-                    const p1 = updatedPlayers.find(p => p.id === id1);
-                    const p2 = updatedPlayers.find(p => p.id === id2);
-                    
-                    if (p1 && p2) {
-                        const assignedColor = index % SUB_COLORS.length;
-                        p1.subPair = id2;
-                        p1.subColor = assignedColor;
-                        p2.subPair = id1;
-                        p2.subColor = assignedColor;
-                    }
-                });
-                
-                // Update state with fixed color assignment
-                setPlayers(updatedPlayers);
-        // Step 4: FIXED - Generate optimal starting lineup ensuring NO paired players on court together
-                const courtPlayers = [];
-                const benchPlayers = [];
-                
-                // Add all no-sub and full-time players to court first
-                const priorityPlayers = updatedPlayers.filter(p => 
-                    p.active && (p.star || p.isFullTime)
-                );
-                courtPlayers.push(...priorityPlayers);
-                
-                // FIXED: Add exactly ONE player from each sub pair to court
-                pairings.forEach(([id1, id2]) => {
-                    const p1 = updatedPlayers.find(p => p.id === id1);
-                    const p2 = updatedPlayers.find(p => p.id === id2);
-                    
-                    if (!p1 || !p2) return;
-                    
-                    if (courtPlayers.length < 6) {
-                        // Choose the better serve receive player to start (they'll be in back row initially)
-                        const starterPlayer = p1.serveReceive >= p2.serveReceive ? p1 : p2;
-                        const benchPlayer = starterPlayer === p1 ? p2 : p1;
-                        
-                        courtPlayers.push(starterPlayer);
-                        benchPlayers.push(benchPlayer);
-                    } else {
-                        // Court is full, both go to bench
-                        benchPlayers.push(p1, p2);
-                    }
-                });
-                
-                // Fill remaining court spots if needed
-                const remainingPlayers = updatedPlayers.filter(p => 
-                    p.active && !courtPlayers.includes(p) && !benchPlayers.includes(p)
-                );
-                while (courtPlayers.length < 6 && remainingPlayers.length > 0) {
-                    courtPlayers.push(remainingPlayers.shift());
-                }
-                benchPlayers.push(...remainingPlayers);
+                        // Create optimal pairs based on complementary skills
+                        while (unpaired.length >= 2) {
+                            let bestPair = null;
+                            let bestScore = -1;
+                            
+                            for (let i = 0; i < unpaired.length - 1; i++) {
+                                for (let j = i + 1; j < unpaired.length; j++) {
+                                    const p1 = unpaired[i];
+                                    const p2 = unpaired[j];
+                                    
+                                    // Prefer pairs where one excels in SR and other in setting
+                                    const srComplementary = (p1.serveReceive > avgServeReceive && p2.serveReceive < avgServeReceive) ||
+                                                          (p2.serveReceive > avgServeReceive && p1.serveReceive < avgServeReceive);
+                                    const setComplementary = (p1.setting > avgSetting && p2.setting < avgSetting) ||
+                                                            (p2.setting > avgSetting && p1.setting < avgSetting);
+                                    
+                                    let pairScore = p1.allAround + p2.allAround;
+                                    if (srComplementary) pairScore += 3;
+                                    if (setComplementary) pairScore += 3;
+                                    
+                                    // Bonus for one above average SR and one above average setting
+                                    if ((p1.serveReceive > avgServeReceive && p2.setting > avgSetting) ||
+                                        (p2.serveReceive > avgServeReceive && p1.setting > avgSetting)) {
+                                        pairScore += 5;
+                                    }
+                                    
+                                    if (pairScore > bestScore) {
+                                        bestScore = pairScore;
+                                        bestPair = [i, j];
+                                    }
+                                }
+                            }
+                            
+                            if (bestPair) {
+                                const [i, j] = bestPair;
+                                pairs.push([unpaired[i].id, unpaired[j].id]);
+                                unpaired.splice(Math.max(i, j), 1);
+                                unpaired.splice(Math.min(i, j), 1);
+                            } else {
+                                break;
+                            }
+                        }
 
-                // Step 5: FIXED - Optimize court positions with serve receive priority for back row
-                const optimizePositions = (courtPlayerList) => {
-                    if (courtPlayerList.length < 6) return null;
+                        // Remaining unpaired players become full-time (highest all-around)
+                        const fullTimePlayers = unpaired.sort((a, b) => b.allAround - a.allAround);
+
+                        // Generate starting lineup
+                        const courtPlayers = [];
+                        const benchPlayers = [];
+                        
+                        // Add no-sub and full-time players first
+                        noSubPlayers.forEach(p => courtPlayers.push(p));
+                        fullTimePlayers.forEach(p => courtPlayers.push(p));
+                        
+                        // Add one player from each pair (prefer better serve receive player for back row start)
+                        pairs.forEach(([id1, id2]) => {
+                            const p1 = testPlayers.find(p => p.id === id1);
+                            const p2 = testPlayers.find(p => p.id === id2);
+                            
+                            if (courtPlayers.length < 6) {
+                                const starter = p1.serveReceive >= p2.serveReceive ? p1 : p2;
+                                const bencher = starter === p1 ? p2 : p1;
+                                courtPlayers.push(starter);
+                                benchPlayers.push(bencher);
+                            } else {
+                                benchPlayers.push(p1, p2);
+                            }
+                        });
+
+                        // Fill remaining spots
+                        const remaining = testPlayers.filter(p => 
+                            !courtPlayers.includes(p) && !benchPlayers.includes(p)
+                        );
+                        while (courtPlayers.length < 6 && remaining.length > 0) {
+                            courtPlayers.push(remaining.shift());
+                        }
+                        benchPlayers.push(...remaining);
+
+                        // Calculate lineup score
+                        const backRowSR = courtPlayers.slice(0, 3).reduce((sum, p) => sum + p.serveReceive, 0);
+                        const frontRowSetting = courtPlayers.slice(3, 6).reduce((sum, p) => sum + p.setting, 0);
+                        const pairBonus = pairs.length * 2;
+                        const score = backRowSR + frontRowSetting + pairBonus;
+
+                        lineups.push({
+                            pairs,
+                            fullTimePlayers,
+                            courtPlayers,
+                            benchPlayers,
+                            score,
+                            iteration
+                        });
+                    }
                     
-                    // Sort by serve receive for back row positioning
-                    const sortedBySR = [...courtPlayerList].sort((a, b) => b.serveReceive - a.serveReceive);
-                    // Sort by setting for front row positioning  
-                    const sortedBySetting = [...courtPlayerList].sort((a, b) => b.setting - a.setting);
+                    return lineups.sort((a, b) => b.score - a.score);
+                };
+
+                const optimizedLineups = generateOptimizedLineups();
+                setBestLineups(optimizedLineups);
+                setCurrentLineupIndex(0);
+
+                if (optimizedLineups.length > 0) {
+                    const bestSetup = optimizedLineups[0];
                     
-                    return {
-                        // Back row: best serve receive players
-                        backLeft: sortedBySR[0],      // Server position - best SR
-                        backMiddle: sortedBySR[1],    // Second best SR
-                        backRight: sortedBySR[2],     // Third best SR
-                        // Front row: best setting players from remaining
+                    // Apply the best pairing setup
+                    let colorIndex = 0;
+                    const finalPlayers = [...players];
+                    
+                    // Clear existing pairs
+                    finalPlayers.forEach(p => {
+                        p.subPair = null;
+                        p.subColor = null;
+                        p.isFullTime = false;
+                    });
+                    
+                    // Apply pairs with colors
+                    bestSetup.pairs.forEach(([id1, id2]) => {
+                        const p1 = finalPlayers.find(p => p.id === id1);
+                        const p2 = finalPlayers.find(p => p.id === id2);
+                        
+                        if (p1 && p2) {
+                            const assignedColor = colorIndex % SUB_COLORS.length;
+                            p1.subPair = id2;
+                            p1.subColor = assignedColor;
+                            p2.subPair = id1;
+                            p2.subColor = assignedColor;
+                            colorIndex++;
+                        }
+                    });
+                    
+                    // Mark full-time players
+                    bestSetup.fullTimePlayers.forEach(player => {
+                        const p = finalPlayers.find(p => p.id === player.id);
+                        if (p) p.isFullTime = true;
+                    });
+                    
+                    setPlayers(finalPlayers);
+
+                    // Set optimal court positions
+                    const sortedBySR = [...bestSetup.courtPlayers].sort((a, b) => b.serveReceive - a.serveReceive);
+                    const sortedBySetting = [...bestSetup.courtPlayers].sort((a, b) => b.setting - a.setting);
+                    
+                    const newPositions = {
+                        backLeft: sortedBySR[0],
+                        backMiddle: sortedBySR[1], 
+                        backRight: sortedBySR[2],
                         frontLeft: sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3],
                         frontMiddle: sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p) && 
                                     p !== (sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3])) || sortedBySetting[4],
-                        frontRight: courtPlayerList.find(p => ![
+                        frontRight: bestSetup.courtPlayers.find(p => ![
                             sortedBySR[0], sortedBySR[1], sortedBySR[2],
                             sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3],
                             sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p) && 
                                 p !== (sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3])) || sortedBySetting[4]
                         ].includes(p)) || sortedBySetting[5],
-                        bench: benchPlayers
+                        bench: bestSetup.benchPlayers
                     };
-                };
-
-                const bestLineup = optimizePositions(courtPlayers);
-                
-                if (bestLineup) {
-                    setCourtPositions(bestLineup);
-                    setBestLineups([{ positions: bestLineup, score: 100 }]);
+                    
+                    setCourtPositions(newPositions);
                 }
                 
                 setSubstitutionCount(0);
@@ -719,7 +770,78 @@ const handleUpdatePlayer = () => {
                 setIsOptimizing(false);
             };
 
-            // FIXED: Rotation with automatic substitutions based on position requirements
+            // FIXED: Shuffle through different optimized lineups for substitutional mode
+            const shuffleSubstitutionalPlay = () => {
+                if (bestLineups.length === 0) return;
+                
+                const nextIndex = (currentLineupIndex + 1) % Math.min(bestLineups.length, 5); // Cycle through top 5
+                setCurrentLineupIndex(nextIndex);
+                
+                const selectedSetup = bestLineups[nextIndex];
+                
+                // Apply the selected pairing setup
+                let colorIndex = 0;
+                const updatedPlayers = [...players];
+                
+                // Clear existing pairs
+                updatedPlayers.forEach(p => {
+                    if (!p.star) { // Don't clear star player status
+                        p.subPair = null;
+                        p.subColor = null;
+                        p.isFullTime = false;
+                    }
+                });
+                
+                // Apply pairs with colors
+                selectedSetup.pairs.forEach(([id1, id2]) => {
+                    const p1 = updatedPlayers.find(p => p.id === id1);
+                    const p2 = updatedPlayers.find(p => p.id === id2);
+                    
+                    if (p1 && p2) {
+                        const assignedColor = colorIndex % SUB_COLORS.length;
+                        p1.subPair = id2;
+                        p1.subColor = assignedColor;
+                        p2.subPair = id1;
+                        p2.subColor = assignedColor;
+                        colorIndex++;
+                    }
+                });
+                
+                // Mark full-time players
+                selectedSetup.fullTimePlayers.forEach(player => {
+                    const p = updatedPlayers.find(p => p.id === player.id);
+                    if (p) p.isFullTime = true;
+                });
+                
+                setPlayers(updatedPlayers);
+
+                // Set court positions for this lineup
+                const sortedBySR = [...selectedSetup.courtPlayers].sort((a, b) => b.serveReceive - a.serveReceive);
+                const sortedBySetting = [...selectedSetup.courtPlayers].sort((a, b) => b.setting - a.setting);
+                
+                const newPositions = {
+                    backLeft: sortedBySR[0],
+                    backMiddle: sortedBySR[1], 
+                    backRight: sortedBySR[2],
+                    frontLeft: sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3],
+                    frontMiddle: sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p) && 
+                                p !== (sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3])) || sortedBySetting[4],
+                    frontRight: selectedSetup.courtPlayers.find(p => ![
+                        sortedBySR[0], sortedBySR[1], sortedBySR[2],
+                        sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3],
+                        sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p) && 
+                            p !== (sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3])) || sortedBySetting[4]
+                    ].includes(p)) || sortedBySetting[5],
+                    bench: selectedSetup.benchPlayers
+                };
+                
+                setCourtPositions(newPositions);
+                setSubstitutionCount(0);
+                setSubHistory([]);
+                setRotationCount(0);
+            };
+
+            // FIXED: Enhanced rotation with automatic substitutions
             const rotateWithSubstitutions = (direction) => {
                 let newPositions;
                 
@@ -745,7 +867,7 @@ const handleUpdatePlayer = () => {
                     };
                 }
 
-                // FIXED: Check for required substitutions after rotation
+                // Check for required substitutions after rotation
                 const substitutions = [];
                 
                 Object.keys(newPositions).forEach(position => {
@@ -762,7 +884,6 @@ const handleUpdatePlayer = () => {
                         partner.serveReceive > currentPlayer.serveReceive :
                         partner.setting > currentPlayer.setting;
                     
-                    // FIXED: Always substitute based on position requirements, not just when "better"
                     if (shouldSubstitute && newPositions.bench.includes(partner)) {
                         substitutions.push({
                             position,
@@ -777,27 +898,49 @@ const handleUpdatePlayer = () => {
                 substitutions.forEach(sub => {
                     newPositions[sub.position] = sub.inPlayer;
                     
-                    // Remove incoming player from bench
                     const benchIndex = newPositions.bench.findIndex(p => p.id === sub.inPlayer.id);
                     if (benchIndex >= 0) {
                         newPositions.bench.splice(benchIndex, 1);
                     }
                     
-                    // Add outgoing player to bench
                     newPositions.bench.push(sub.outPlayer);
-                    
-                    // Update tracking
-                    setSubstitutionCount(prev => prev + 1);
-                    setSubHistory(prev => [...prev, {
+                });
+
+                // Update tracking
+                if (direction === 'forward') {
+                    setSubstitutionCount(prev => prev + substitutions.length);
+                    setRotationCount(prev => prev + 1);
+                    setSubHistory(prev => [...prev, ...substitutions.map(sub => ({
                         rotation: rotationCount + 1,
                         out: sub.outPlayer.name,
                         in: sub.inPlayer.name,
                         reason: sub.reason
-                    }]);
-                });
+                    }))]);
+                } else {
+                    setSubstitutionCount(prev => Math.max(0, prev - substitutions.length));
+                    setRotationCount(prev => Math.max(0, prev - 1));
+                    setSubHistory(prev => prev.slice(0, -substitutions.length));
+                }
 
                 setCourtPositions(newPositions);
-                setRotationCount(prev => prev + 1);
+            };
+
+            // Determine which players should be full-time (no subs) based on roster size
+            const determineFullTimePlayers = (activePlayers) => {
+                if (activePlayers.length <= 6) {
+                    return activePlayers.map(p => p.id);
+                }
+                
+                const availableForPairing = activePlayers.length - (activePlayers.filter(p => p.star).length);
+                const needFullTime = availableForPairing % 2;
+                
+                if (needFullTime === 0) return [];
+                
+                const sortedByAllAround = activePlayers
+                    .filter(p => !p.star)
+                    .sort((a, b) => b.allAround - a.allAround);
+                    
+                return sortedByAllAround.slice(0, needFullTime).map(p => p.id);
             };
 
             // Export team data
@@ -849,7 +992,8 @@ const handleUpdatePlayer = () => {
                 reader.readAsText(file);
                 event.target.value = '';
             };
-        // Helper function to check star player rules for rotational mode
+
+            // Helper function to check star player rules for rotational mode
             const checkStarRules = (positions) => {
                 const courtPlayers = [
                     positions.backLeft,
@@ -1069,7 +1213,8 @@ const handleUpdatePlayer = () => {
                 
                 setIsOptimizing(false);
             };
-        const optimizeStandardPlay = optimizeServingPriority;
+
+            const optimizeStandardPlay = optimizeServingPriority;
 
             const shuffleStandardPlay = () => {
                 if (bestLineups.length === 0) return;
@@ -1080,6 +1225,11 @@ const handleUpdatePlayer = () => {
             };
 
             const autoArrangePlayers = () => {
+                if (playMode === 'substitutional') {
+                    resetSubstitutionalSetup();
+                    return;
+                }
+
                 const activePlayers = players.filter(p => p.active);
                 if (activePlayers.length < 6) return;
 
@@ -1094,12 +1244,9 @@ const handleUpdatePlayer = () => {
                 };
                 setCourtPositions(newPositions);
                 
-                // Reset substitution tracking
-                if (playMode === 'substitutional') {
-                    setSubstitutionCount(0);
-                    setSubHistory([]);
-                    setRotationCount(0);
-                }
+                setSubstitutionCount(0);
+                setSubHistory([]);
+                setRotationCount(0);
             };
 
             const rotateForward = () => {
@@ -1314,7 +1461,8 @@ const handleUpdatePlayer = () => {
                     position && React.createElement('div', { className: "text-xs text-gray-600 mt-1" }, position)
                 );
             };
-        const DropZone = ({ position, currentPlayer, label }) => (
+
+            const DropZone = ({ position, currentPlayer, label }) => (
                 React.createElement('div', {
                     className: `h-16 border-2 border-dashed rounded-lg flex items-center justify-center transition-all ${
                         dropZone === position ? 'drop-zone-active' : 'border-gray-300'
@@ -1376,7 +1524,7 @@ const handleUpdatePlayer = () => {
                             ),
                             bestLineups.length > 0 && (
                                 React.createElement('div', { className: "text-xs text-center text-gray-600" },
-                                    `Lineup ${currentLineupIndex + 1} of ${bestLineups.length} best options`
+                                    `Lineup ${currentLineupIndex + 1} of ${Math.min(bestLineups.length, 5)} best options`
                                 )
                             )
                         )
@@ -1548,7 +1696,7 @@ const handleUpdatePlayer = () => {
                             )
                         )
                     ),
-        // Fixed Team Switcher
+                    // Fixed Team Switcher
                     React.createElement('div', { className: "flex gap-2" },
                         ['team1', 'team2', 'team3'].filter(slot => slot !== teamSlots.active).map(slot => (
                             React.createElement('button', {
@@ -1658,7 +1806,7 @@ const handleUpdatePlayer = () => {
                             )
                         ),
                         React.createElement('button', {
-                            onClick: shuffleStandardPlay,
+                            onClick: playMode === 'substitutional' ? shuffleSubstitutionalPlay : shuffleStandardPlay,
                             className: "px-3 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400",
                             disabled: bestLineups.length === 0,
                             title: "Shuffle through best lineups"
@@ -1672,7 +1820,7 @@ const handleUpdatePlayer = () => {
                             className: "flex-1 p-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors",
                             disabled: players.filter(p => p.active).length < 6
                         },
-                            "📋 Basic Setup"
+                            playMode === 'substitutional' ? "🔄 Reset" : "📋 Basic Setup"
                         )
                     )
                 ),
@@ -1698,7 +1846,7 @@ const handleUpdatePlayer = () => {
                             return React.createElement('div', { 
                                 key: player.id, 
                                 className: `flex items-center gap-2 p-2 rounded-lg transition-all ${
-                                    isNoSub ? 'no-sub-player' : subColorClass || 'bg-white'
+                                    isNoSub ? 'no-sub-player' : subColorClass || 'bg-white border border-gray-200'
                                 } ${!player.active ? 'opacity-50' : ''}`
                             },
                                 React.createElement('button', {
@@ -1755,12 +1903,6 @@ const handleUpdatePlayer = () => {
                                             })
                                         )),
                                         // Unpair button
-                                        !isNoSub && player.subPair && (
-                                            React.createElement('button', {
-                                                onClick: () => removeSubPair(player.id),
-                                                className: "w-4 h-4 bg-red-500 text-white rounded text-xs flex items-center justify-center",
-                                                title: "Remove substitution pairing"
-                                            }, "×")
                                         )
                                     )
                                 )
@@ -1768,7 +1910,8 @@ const handleUpdatePlayer = () => {
                         })
                     )
                 ),
-    // Enhanced Player Form Modal with mode-specific attributes
+
+                // Enhanced Player Form Modal with mode-specific attributes
                 showPlayerForm && (
                     React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" },
                         React.createElement('div', { className: "bg-white rounded-lg p-6 w-80 mx-4 max-h-screen overflow-y-auto" },
@@ -1981,3 +2124,4 @@ const handleUpdatePlayer = () => {
     </script>
 </body>
 </html>
+                                        )
