@@ -1667,14 +1667,37 @@ const handleUpdatePlayer = () => {
                         )
                     ),
                     React.createElement('div', { className: "flex gap-2 mt-2" },
-                        React.createElement('button', {
-                            onClick: autoArrangePlayers,
-                            className: "flex-1 p-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors",
-                            disabled: players.filter(p => p.active).length < 6
-                        },
-                            "📋 Basic Setup"
-                        )
-                    )
+    React.createElement('button', {
+        onClick: playMode === 'substitutional' ? () => {
+            // Reset substitutional mode
+            const resetPlayers = players.map(p => ({
+                ...p,
+                subPair: null,
+                subColor: null,
+                isFullTime: false
+            }));
+            setPlayers(resetPlayers);
+            setCourtPositions({
+                backLeft: null,
+                frontLeft: null,
+                frontMiddle: null,
+                frontRight: null,
+                backRight: null,
+                backMiddle: null,
+                bench: []
+            });
+            setBestLineups([]);
+            setCurrentLineupIndex(0);
+            setSubstitutionCount(0);
+            setSubHistory([]);
+            setRotationCount(0);
+        } : autoArrangePlayers,
+        className: "flex-1 p-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors",
+        disabled: playMode === 'rotational' && players.filter(p => p.active).length < 6
+    },
+        playMode === 'substitutional' ? "🔄 Reset" : "📋 Basic Setup"
+    )
+)
                 ),
 
                 // Players List
