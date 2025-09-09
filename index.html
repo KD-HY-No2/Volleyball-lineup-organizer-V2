@@ -2143,6 +2143,7 @@ playMode === 'substitutional' && (
                             className: `flex items-center gap-1 p-2 rounded-lg border-2 cursor-move transition-all ${subColorClass} ${
                                 draggedPlayer && (draggedPlayer.id === player1.id || draggedPlayer.id === player2.id) ? 'opacity-50 scale-95' : ''
                             }`,
+                            style: { touchAction: 'none' },
                             draggable: true,
                             onDragStart: (e) => {
                                 // Mark this as a pair tile drag for proper delete zone detection
