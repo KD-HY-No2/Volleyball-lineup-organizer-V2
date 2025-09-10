@@ -702,33 +702,99 @@ while (courtPlayers.length < 6 && remainingPlayers.length > 0) {
     courtPlayers.push(remainingPlayers.shift());
 }
 benchPlayers.push(...remainingPlayers);
-                // Step 5: FIXED - Optimize court positions with serve receive priority for back row
-                const optimizePositions = (courtPlayerList) => {
-                    if (courtPlayerList.length < 6) return null;
-                    
-                    // Sort by serve receive for back row positioning
-                    const sortedBySR = [...courtPlayerList].sort((a, b) => b.serveReceive - a.serveReceive);
-                    // Sort by setting for front row positioning  
-                    const sortedBySetting = [...courtPlayerList].sort((a, b) => b.setting - a.setting);
-                    
-                    return {
-                        // Back row: best serve receive players
-                        backLeft: sortedBySR[0],      // Server position - best SR
-                        backMiddle: sortedBySR[1],    // Second best SR
-                        backRight: sortedBySR[2],     // Third best SR
-                        // Front row: best setting players from remaining
-                        frontLeft: sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3],
-                        frontMiddle: sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p) && 
-                                    p !== (sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3])) || sortedBySetting[4],
-                        frontRight: courtPlayerList.find(p => ![
-                            sortedBySR[0], sortedBySR[1], sortedBySR[2],
-                            sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3],
-                            sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p) && 
-                                p !== (sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3])) || sortedBySetting[4]
-                        ].includes(p)) || sortedBySetting[5],
-                        bench: benchPlayers
-                    };
-                };
+                // Step 5: FIXED - Optimize court positions with no-sub distribution and top player placement
+const optimizePositions = (courtPlayerList) => {
+    if (courtPlayerList.length < 6) return null;
+    
+    const noSubPlayers = courtPlayerList.filter(p => p.star || p.isFullTime);
+    const subPlayers = courtPlayerList.filter(p => !p.star && !p.isFullTime);
+    
+    // Sort players by overall rating (allAround) to identify top player
+    const sortedByOverall = [...courtPlayerList].sort((a, b) => b.allAround - a.allAround);
+    const topPlayer = sortedByOverall[0];
+    
+    // Sort by serve receive for back row positioning
+    const sortedBySR = [...courtPlayerList].sort((a, b) => b.serveReceive - a.serveReceive);
+    const worstSRInBackRow = sortedBySR[5]; // Lowest SR player who will be in back row
+    
+    // Initialize positions
+    let positions = {
+        backLeft: null, backMiddle: null, backRight: null,
+        frontLeft: null, frontMiddle: null, frontRight: null,
+        bench: benchPlayers
+    };
+    
+    // Step 1: Distribute no-sub players to ensure at least one in each row
+    if (noSubPlayers.length >= 2) {
+        // Place first no-sub in front row
+        positions.frontLeft = noSubPlayers[0];
+        // Place second no-sub in back row opposite side
+        positions.backRight = noSubPlayers[1];
+        
+        // If there's a third no-sub player, place strategically
+        if (noSubPlayers.length >= 3) {
+            positions.frontMiddle = noSubPlayers[2];
+        }
+    } else if (noSubPlayers.length === 1) {
+        // Single no-sub player goes to front left
+        positions.frontLeft = noSubPlayers[0];
+    }
+    
+    // Step 2: Position top player next to worst serve receive player in back row
+    const backPositions = ['backLeft', 'backMiddle', 'backRight'];
+    const frontPositions = ['frontLeft', 'frontMiddle', 'frontRight'];
+    
+    // Find where worst SR player should go (prioritize server position if available)
+    let worstSRPosition = 'backLeft'; // Default server position
+    if (positions.backLeft !== null) {
+        worstSRPosition = positions.backMiddle !== null ? 'backRight' : 'backMiddle';
+    }
+    
+    // Place worst SR player
+    if (!positions[worstSRPosition]) {
+        positions[worstSRPosition] = worstSRInBackRow;
+    }
+    
+    // Place top player adjacent to worst SR player
+    let topPlayerPosition;
+    if (worstSRPosition === 'backLeft') {
+        topPlayerPosition = positions.frontLeft === null ? 'frontLeft' : 'backMiddle';
+    } else if (worstSRPosition === 'backMiddle') {
+        topPlayerPosition = positions.frontMiddle === null ? 'frontMiddle' : 
+                          (positions.frontLeft === null ? 'frontLeft' : 'frontRight');
+    } else { // backRight
+        topPlayerPosition = positions.frontRight === null ? 'frontRight' : 'backMiddle';
+    }
+    
+    if (!positions[topPlayerPosition] && topPlayer !== worstSRInBackRow) {
+        positions[topPlayerPosition] = topPlayer;
+    }
+    
+    // Step 3: Fill remaining positions optimally
+    const remainingPlayers = courtPlayerList.filter(p => 
+        !Object.values(positions).includes(p)
+    );
+    
+    // Fill back row with best remaining SR players
+    backPositions.forEach(pos => {
+        if (!positions[pos] && remainingPlayers.length > 0) {
+            const bestSR = remainingPlayers.sort((a, b) => b.serveReceive - a.serveReceive)[0];
+            positions[pos] = bestSR;
+            remainingPlayers.splice(remainingPlayers.indexOf(bestSR), 1);
+        }
+    });
+    
+    // Fill front row with best remaining setting players
+    frontPositions.forEach(pos => {
+        if (!positions[pos] && remainingPlayers.length > 0) {
+            const bestSetting = remainingPlayers.sort((a, b) => b.setting - a.setting)[0];
+            positions[pos] = bestSetting;
+            remainingPlayers.splice(remainingPlayers.indexOf(bestSetting), 1);
+        }
+    });
+    
+    return positions;
+};
 
                 const bestLineup = optimizePositions(courtPlayers);
                 
