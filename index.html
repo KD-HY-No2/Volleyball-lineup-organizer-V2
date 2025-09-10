@@ -777,92 +777,36 @@ const optimizePositions = (courtPlayerList) => {
             usedPlayers.add(topPlayer);
         }
     }
-    
-    // Step 4: Fill remaining positions with available players, respecting substitution pairs
+
+    // Step 4: Fill remaining positions with available players
 const remainingPlayers = courtPlayerList.filter(p => !usedPlayers.has(p));
 const backPositions = ['backLeft', 'backMiddle', 'backRight'];
 const frontPositions = ['frontLeft', 'frontMiddle', 'frontRight'];
 
-// Fill back row positions
+// Fill back row with best SR players
 backPositions.forEach(pos => {
     if (positions[pos] === null && remainingPlayers.length > 0) {
-        // Find the best player for back row, considering substitution pairs
-        let bestPlayer = null;
-        let bestScore = -1;
-        
-        remainingPlayers.forEach(player => {
-            let score = player.serveReceive;
-            
-            // If this player has a substitution pair, check if their partner is on bench
-            if (player.subPair) {
-                const partner = updatedPlayers.find(p => p.id === player.subPair);
-                if (partner && benchPlayers.includes(partner)) {
-                    // This player should be on court for back row if they have better/equal SR
-                    if (player.serveReceive >= partner.serveReceive) {
-                        score += 2; // Bonus for being the correct player from the pair
-                    } else {
-                        score -= 2; // Penalty for being wrong player from pair
-                    }
-                }
-            }
-            
-            if (score > bestScore) {
-                bestScore = score;
-                bestPlayer = player;
-            }
-        });
-        
-        if (bestPlayer) {
-            positions[pos] = bestPlayer;
-            remainingPlayers.splice(remainingPlayers.indexOf(bestPlayer), 1);
-        }
+        const bestSR = remainingPlayers.sort((a, b) => b.serveReceive - a.serveReceive)[0];
+        positions[pos] = bestSR;
+        remainingPlayers.splice(remainingPlayers.indexOf(bestSR), 1);
     }
 });
 
-// Fill front row positions  
+// Fill front row with best setting players  
 frontPositions.forEach(pos => {
     if (positions[pos] === null && remainingPlayers.length > 0) {
-        // Find the best player for front row, considering substitution pairs
-        let bestPlayer = null;
-        let bestScore = -1;
-        
-        remainingPlayers.forEach(player => {
-            let score = player.setting;
-            
-            // If this player has a substitution pair, check if their partner is on bench
-            if (player.subPair) {
-                const partner = updatedPlayers.find(p => p.id === player.subPair);
-                if (partner && benchPlayers.includes(partner)) {
-                    // This player should be on court for front row if they have better setting
-                    if (player.setting >= partner.setting) {
-                        score += 2; // Bonus for being the correct player from the pair
-                    } else {
-                        score -= 2; // Penalty for being wrong player from pair
-                    }
-                }
-            }
-            
-            if (score > bestScore) {
-                bestScore = score;
-                bestPlayer = player;
-            }
-        });
-        
-        if (bestPlayer) {
-            positions[pos] = bestPlayer;
-            remainingPlayers.splice(remainingPlayers.indexOf(bestPlayer), 1);
-        }
+        const bestSetting = remainingPlayers.sort((a, b) => b.setting - a.setting)[0];
+        positions[pos] = bestSetting;
+        remainingPlayers.splice(remainingPlayers.indexOf(bestSetting), 1);
     }
 });
-
-    
+        
     return positions;
 };
 
                 const bestLineup = optimizePositions(courtPlayers);
                 
                 if (bestLineup) {
-    console.log("Setting court positions to:", bestLineup);
     setCourtPositions(bestLineup);
     setBestLineups([{ positions: bestLineup, score: 100 }]);
 }
@@ -875,9 +819,6 @@ setIsOptimizing(false);
 
 // FIXED: Rotation with automatic substitutions based on position requirements
 const rotateWithSubstitutions = (direction) => {
-    console.log("rotateWithSubstitutions called with direction:", direction, "rotationCount:", rotationCount);
-    console.trace("Call stack:"); // This will show us what called this function
-    
     let newPositions;
     
     if (direction === 'forward') {
@@ -902,15 +843,8 @@ const rotateWithSubstitutions = (direction) => {
         };
     }
 
-    // FIXED: Prevent automatic rotation immediately after optimization
-if (rotationCount === 0 && direction === 'forward') {
-    console.log("Preventing automatic rotation after optimization");
-    setRotationCount(1);
-    return;
-}
-
-// FIXED: Check for required substitutions after rotation
-const substitutions = [];
+    // Check for required substitutions after rotation
+    const substitutions = [];
     Object.keys(newPositions).forEach(position => {
     if (position === 'bench') return;
     
