@@ -1540,45 +1540,27 @@ if (rotationCount === 0 && direction === 'forward') {
             };
 
             // Calculate current strengths based on play mode
-            const calculateCurrentStrengths = () => {
-                if (playMode === 'rotational') {
-                    return calculateRotationStrengths(courtPositions).slice(0, 6);
-                } else {
-                    // For substitutional mode, calculate serve receive and setting strengths
-                    const rotations = [];
-                    let currentPositions = { ...courtPositions };
-                    
-                    for (let i = 0; i < 6; i++) {
-                        const backRowSR = (currentPositions.backLeft?.serveReceive || 0) + 
-                                         (currentPositions.backMiddle?.serveReceive || 0) + 
-                                         (currentPositions.backRight?.serveReceive || 0);
-                        
-                        const frontRowSetting = (currentPositions.frontLeft?.setting || 0) + 
-                                               (currentPositions.frontMiddle?.setting || 0) + 
-                                               (currentPositions.frontRight?.setting || 0);
-                        
-                        rotations.push({
-                            backRowSR,
-                            frontRowSetting,
-                            serverRating: currentPositions.backLeft?.serving || 0,
-                            rotation: i
-                        });
-                        
-                        const newPositions = {
-                            backRight: currentPositions.backMiddle,
-                            frontRight: currentPositions.backRight,
-                            frontMiddle: currentPositions.frontRight,
-                            frontLeft: currentPositions.frontMiddle,
-                            backLeft: currentPositions.frontLeft,
-                            backMiddle: currentPositions.backLeft,
-                            bench: [...currentPositions.bench]
-                        };
-                        currentPositions = newPositions;
-                    }
-                    
-                    return rotations;
-                }
-            };
+const calculateCurrentStrengths = () => {
+    if (playMode === 'rotational') {
+        return calculateRotationStrengths(courtPositions).slice(0, 6);
+    } else {
+        // For substitutional mode, just calculate current position strengths without rotation simulation
+        const backRowSR = (courtPositions.backLeft?.serveReceive || 0) + 
+                         (courtPositions.backMiddle?.serveReceive || 0) + 
+                         (courtPositions.backRight?.serveReceive || 0);
+        
+        const frontRowSetting = (courtPositions.frontLeft?.setting || 0) + 
+                               (courtPositions.frontMiddle?.setting || 0) + 
+                               (courtPositions.frontRight?.setting || 0);
+        
+        return [{
+            backRowSR,
+            frontRowSetting,
+            serverRating: courtPositions.backLeft?.serving || 0,
+            rotation: 0
+        }];
+    }
+};
 
             const currentStrengths = calculateCurrentStrengths();
 
