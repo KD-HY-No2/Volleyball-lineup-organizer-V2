@@ -845,7 +845,13 @@ const rotateWithSubstitutions = (direction) => {
 
     // FIXED: Check for required substitutions after rotation
     const substitutions = [];
-    
+
+    // Don't perform substitutions if we're at rotation 0 (initial setup)
+if (rotationCount === 0 && direction === 'forward') {
+    setCourtPositions(newPositions);
+    setRotationCount(1);
+    return;
+}
     Object.keys(newPositions).forEach(position => {
     if (position === 'bench') return;
     
