@@ -1847,16 +1847,16 @@ const rotateWithSubstitutions = (direction) => {
                     ),
                     React.createElement('div', { className: "flex gap-2" },
                         React.createElement('button', {
-                            onClick: optimizeStandardPlay,
-                            className: `flex-1 p-3 text-white rounded-lg transition-colors ${
-                                isOptimizing ? 'optimizing cursor-not-allowed' : 
-                                playMode === 'rotational' ? 'bg-purple-500 hover:bg-purple-600' : 'bg-green-500 hover:bg-green-600'
-                            }`,
-                            disabled: isOptimizing || players.filter(p => p.active).length < 6
-                        },
-                            isOptimizing ? "Optimizing..." : 
-                            playMode === 'rotational' ? "🎯 Standard Play" : "🎯 Optimize Subs"
-                        ),
+    onClick: playMode === 'rotational' ? optimizeStandardPlay : optimizeSubstitutionalPlay,
+    className: `flex-1 p-3 text-white rounded-lg transition-colors ${
+        isOptimizing ? 'optimizing cursor-not-allowed' : 
+        playMode === 'rotational' ? 'bg-purple-500 hover:bg-purple-600' : 'bg-green-500 hover:bg-green-600'
+    }`,
+    disabled: isOptimizing || players.filter(p => p.active).length < 6
+},
+    isOptimizing ? "Optimizing..." : 
+    playMode === 'rotational' ? "🎯 Standard Play" : "🎯 Optimize Subs"
+),
                         playMode === 'rotational' && (
                             React.createElement('button', {
                                 onClick: optimizeServingPriority,
