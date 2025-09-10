@@ -1142,49 +1142,67 @@ const rotateWithSubstitutions = (direction) => {
         return;
     }
 
-    // Rank players by defense (with serving as tiebreaker)
+    // Rank ALL active players by defense (with serving as tiebreaker)
     const rankedPlayers = [...activePlayers].sort((a, b) => {
         if (a.defense === b.defense) {
-            return b.serving - a.serving; // Higher serving wins ties
+            return b.serving - a.serving;
         }
-        return b.defense - a.defense; // Higher defense ranked higher
+        return b.defense - a.defense;
     });
 
-    const topSix = rankedPlayers.slice(0, 6);
-    const benchPlayers = rankedPlayers.slice(6);
+    // Create alternating pattern for full rotation
+    // Pair: 1st with last, 2nd with 2nd-to-last, etc.
+    const totalPlayers = rankedPlayers.length;
+    const rotationOrder = [];
+    
+    // Build alternating pairs: high with low, with lower ranked ahead
+    for (let i = 0; i < Math.floor(totalPlayers / 2); i++) {
+        const highRanked = rankedPlayers[i];
+        const lowRanked = rankedPlayers[totalPlayers - 1 - i];
+        
+        // Lower ranked player goes first in rotation
+        rotationOrder.push(lowRanked);
+        rotationOrder.push(highRanked);
+    }
+    
+    // If odd number of players, add the middle player at the end
+    if (totalPlayers % 2 === 1) {
+        const middlePlayer = rankedPlayers[Math.floor(totalPlayers / 2)];
+        rotationOrder.push(middlePlayer);
+    }
 
-    // Create alternating pattern: lowest next to highest, with lower ranked ahead in rotation
-    // Positions 1-6 (backLeft, frontLeft, frontMiddle, frontRight, backRight, backMiddle)
-    const alternatingPositions = {
-        backLeft: topSix[0],        // #1 (highest ranked)
-        frontLeft: topSix[5],       // #6 (lowest ranked, next to highest)
-        frontMiddle: topSix[1],     // #2 (second highest)
-        frontRight: topSix[4],      // #5 (second lowest, next to second highest)
-        backRight: topSix[2],       // #3 (third highest)
-        backMiddle: topSix[3],      // #4 (third lowest, next to third highest)
-        bench: benchPlayers
+    // Starting positions: first 6 from rotation order
+    const startingPositions = {
+        backLeft: rotationOrder[0],       // Server position
+        frontLeft: rotationOrder[1],      
+        frontMiddle: rotationOrder[2],    
+        frontRight: rotationOrder[3],     
+        backRight: rotationOrder[4],      
+        backMiddle: rotationOrder[5],     
+        bench: rotationOrder.slice(6)     // Rest on bench
     };
 
     // Check star player rules
-    if (!checkStarRules(alternatingPositions)) {
-        // If alternating doesn't work, try different arrangements
-        const arrangements = [
-            {
-                backLeft: topSix[1], frontLeft: topSix[4], frontMiddle: topSix[0],
-                frontRight: topSix[5], backRight: topSix[3], backMiddle: topSix[2],
-                bench: benchPlayers
-            },
-            {
-                backLeft: topSix[2], frontLeft: topSix[5], frontMiddle: topSix[1],
-                frontRight: topSix[4], backRight: topSix[0], backMiddle: topSix[3],
-                bench: benchPlayers
-            }
-        ];
-
+    if (!checkStarRules(startingPositions)) {
+        // Try different starting rotations to find valid star arrangement
         let validArrangement = null;
-        for (const arrangement of arrangements) {
-            if (checkStarRules(arrangement)) {
-                validArrangement = arrangement;
+        
+        for (let startOffset = 1; startOffset < Math.min(6, totalPlayers); startOffset++) {
+            const testPositions = {
+                backLeft: rotationOrder[startOffset % totalPlayers],
+                frontLeft: rotationOrder[(startOffset + 1) % totalPlayers],
+                frontMiddle: rotationOrder[(startOffset + 2) % totalPlayers],
+                frontRight: rotationOrder[(startOffset + 3) % totalPlayers],
+                backRight: rotationOrder[(startOffset + 4) % totalPlayers],
+                backMiddle: rotationOrder[(startOffset + 5) % totalPlayers],
+                bench: [
+                    ...rotationOrder.slice(0, startOffset),
+                    ...rotationOrder.slice(startOffset + 6)
+                ]
+            };
+            
+            if (checkStarRules(testPositions)) {
+                validArrangement = testPositions;
                 break;
             }
         }
@@ -1192,17 +1210,17 @@ const rotateWithSubstitutions = (direction) => {
         if (validArrangement) {
             setCourtPositions(validArrangement);
         } else {
-            alert("Cannot find valid arrangement that follows star player rules. Try adjusting star player positions.");
+            alert("Cannot find valid rotation that follows star player rules. Try adjusting star player positions.");
             setIsOptimizing(false);
             return;
         }
     } else {
-        setCourtPositions(alternatingPositions);
+        setCourtPositions(startingPositions);
     }
 
-    // Calculate performance metrics
-    const currentLineup = alternatingPositions;
-    const rotations = calculateRotationStrengths(currentLineup);
+    // Verify rotation quality - check all possible 6-player combinations
+    const finalLineup = startingPositions;
+    const rotations = calculateRotationStrengths(finalLineup);
     
     let aboveThresholdCount = 0;
     let totalDefense = 0;
@@ -1214,8 +1232,8 @@ const rotateWithSubstitutions = (direction) => {
         }
         totalDefense += rotation.frontRowTotal + rotation.backRowTotal;
 
-        // Check for 2+ stars on court bonus
-        let currentPos = { ...currentLineup };
+        // Star bonus calculation for current rotation
+        let currentPos = { ...finalLineup };
         for (let r = 0; r < index; r++) {
             const newPos = {
                 backRight: currentPos.backMiddle,
@@ -1226,6 +1244,16 @@ const rotateWithSubstitutions = (direction) => {
                 backMiddle: currentPos.backLeft,
                 bench: [...currentPos.bench]
             };
+            
+            // Handle bench rotation
+            const newBench = [...currentPos.bench];
+            if (newBench.length > 0) {
+                newBench.push(currentPos.backLeft);
+                newPos.backMiddle = newBench.shift();
+            } else {
+                newPos.backMiddle = currentPos.backLeft;
+            }
+            newPos.bench = newBench;
             currentPos = newPos;
         }
 
@@ -1240,7 +1268,7 @@ const rotateWithSubstitutions = (direction) => {
     const score = (avgDefense * 2) + (thresholdPercent * 50) + starBonus;
 
     const optimizedLineup = {
-        positions: currentLineup,
+        positions: finalLineup,
         score: score,
         thresholdPercent: thresholdPercent,
         avgDefense: avgDefense,
