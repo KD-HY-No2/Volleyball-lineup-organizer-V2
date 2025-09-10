@@ -661,44 +661,47 @@ pairings.forEach(([id1, id2], index) => {
 // Update state with fixed color assignment
 setPlayers(updatedPlayers);
         // Step 4: FIXED - Generate optimal starting lineup ensuring NO paired players on court together
-                const courtPlayers = [];
-                const benchPlayers = [];
-                
-                // Add all no-sub and full-time players to court first
-                const priorityPlayers = updatedPlayers.filter(p => 
-                    p.active && (p.star || p.isFullTime)
-                );
-                courtPlayers.push(...priorityPlayers);
-                
-                // FIXED: Add exactly ONE player from each sub pair to court
-                pairings.forEach(([id1, id2]) => {
-                    const p1 = updatedPlayers.find(p => p.id === id1);
-                    const p2 = updatedPlayers.find(p => p.id === id2);
-                    
-                    if (!p1 || !p2) return;
-                    
-                    if (courtPlayers.length < 6) {
-                        // Choose the better serve receive player to start (they'll be in back row initially)
-                        const starterPlayer = p1.serveReceive >= p2.serveReceive ? p1 : p2;
-                        const benchPlayer = starterPlayer === p1 ? p2 : p1;
-                        
-                        courtPlayers.push(starterPlayer);
-                        benchPlayers.push(benchPlayer);
-                    } else {
-                        // Court is full, both go to bench
-                        benchPlayers.push(p1, p2);
-                    }
-                });
-                
-                // Fill remaining court spots if needed
-                const remainingPlayers = updatedPlayers.filter(p => 
-                    p.active && !courtPlayers.includes(p) && !benchPlayers.includes(p)
-                );
-                while (courtPlayers.length < 6 && remainingPlayers.length > 0) {
-                    courtPlayers.push(remainingPlayers.shift());
-                }
-                benchPlayers.push(...remainingPlayers);
+const courtPlayers = [];
+const benchPlayers = [];
 
+// Add all no-sub and full-time players to court first
+const priorityPlayers = updatedPlayers.filter(p => 
+    p.active && (p.star || p.isFullTime)
+);
+courtPlayers.push(...priorityPlayers);
+
+// FIXED: Add exactly ONE player from each sub pair to court
+const processedPairs = new Set();
+updatedPlayers.forEach(player => {
+    if (player.subPair && !processedPairs.has(player.id) && !processedPairs.has(player.subPair)) {
+        const partner = updatedPlayers.find(p => p.id === player.subPair);
+        if (partner && courtPlayers.length < 6) {
+            // Choose the better serve receive player to start
+            const starterPlayer = player.serveReceive >= partner.serveReceive ? player : partner;
+            const benchPlayer = starterPlayer === player ? partner : player;
+            
+            courtPlayers.push(starterPlayer);
+            benchPlayers.push(benchPlayer);
+            
+            processedPairs.add(player.id);
+            processedPairs.add(partner.id);
+        } else if (partner) {
+            // Court is full, both go to bench
+            benchPlayers.push(player, partner);
+            processedPairs.add(player.id);
+            processedPairs.add(partner.id);
+        }
+    }
+});
+
+// Fill remaining court spots if needed
+const remainingPlayers = updatedPlayers.filter(p => 
+    p.active && !courtPlayers.includes(p) && !benchPlayers.includes(p)
+);
+while (courtPlayers.length < 6 && remainingPlayers.length > 0) {
+    courtPlayers.push(remainingPlayers.shift());
+}
+benchPlayers.push(...remainingPlayers);
                 // Step 5: FIXED - Optimize court positions with serve receive priority for back row
                 const optimizePositions = (courtPlayerList) => {
                     if (courtPlayerList.length < 6) return null;
