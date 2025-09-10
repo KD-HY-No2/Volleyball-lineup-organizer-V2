@@ -821,6 +821,7 @@ setIsOptimizing(false);
 // FIXED: Rotation with automatic substitutions based on position requirements
 const rotateWithSubstitutions = (direction) => {
     console.log("rotateWithSubstitutions called with direction:", direction, "rotationCount:", rotationCount);
+    console.trace("Call stack:"); // This will show us what called this function
     
     let newPositions;
     
