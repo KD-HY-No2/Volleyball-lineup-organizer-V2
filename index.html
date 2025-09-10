@@ -627,38 +627,39 @@ const handleUpdatePlayer = () => {
                 }
 
                 // Step 3: FIXED - Apply the pairings with automatic color assignment and proper persistence
-                let colorIndex = 0;
-                const updatedPlayers = [...players];
-                
-                // Clear existing pairs first
-                updatedPlayers.forEach(p => {
-                    p.subPair = null;
-                    p.subColor = null;
-                    p.isFullTime = false;
-                });
-                
-                // Mark full-time players
-                fullTimePlayerIds.forEach(id => {
-                    const player = updatedPlayers.find(p => p.id === id);
-                    if (player) player.isFullTime = true;
-                });
-                
-                // Apply pairings with colors
-                pairings.forEach(([id1, id2], index) => {
-                    const p1 = updatedPlayers.find(p => p.id === id1);
-                    const p2 = updatedPlayers.find(p => p.id === id2);
-                    
-                    if (p1 && p2) {
-                        const assignedColor = index % SUB_COLORS.length;
-                        p1.subPair = id2;
-                        p1.subColor = assignedColor;
-                        p2.subPair = id1;
-                        p2.subColor = assignedColor;
-                    }
-                });
-                
-                // Update state with fixed color assignment
-                setPlayers(updatedPlayers);
+const updatedPlayers = [...players];
+
+// Clear existing pairs first
+updatedPlayers.forEach(p => {
+    if (!p.star) {  // Don't clear star players
+        p.subPair = null;
+        p.subColor = null;
+        p.isFullTime = false;
+    }
+});
+
+// Mark full-time players
+fullTimePlayerIds.forEach(id => {
+    const player = updatedPlayers.find(p => p.id === id);
+    if (player) player.isFullTime = true;
+});
+
+// Apply pairings with colors
+pairings.forEach(([id1, id2], index) => {
+    const p1 = updatedPlayers.find(p => p.id === id1);
+    const p2 = updatedPlayers.find(p => p.id === id2);
+    
+    if (p1 && p2) {
+        const assignedColor = index % SUB_COLORS.length;
+        p1.subPair = id2;
+        p1.subColor = assignedColor;
+        p2.subPair = id1;
+        p2.subColor = assignedColor;
+    }
+});
+
+// Update state with fixed color assignment
+setPlayers(updatedPlayers);
         // Step 4: FIXED - Generate optimal starting lineup ensuring NO paired players on court together
                 const courtPlayers = [];
                 const benchPlayers = [];
