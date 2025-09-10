@@ -1142,57 +1142,114 @@ const rotateWithSubstitutions = (direction) => {
         return;
     }
 
-    // Sort players by defense for balanced positioning
-    const sortedByDefense = [...activePlayers].sort((a, b) => b.defense - a.defense);
-    const topDefenders = sortedByDefense.slice(0, 6);
-    const benchPlayers = activePlayers.filter(p => !topDefenders.some(tp => tp.id === p.id))
-        .sort((a, b) => b.defense - a.defense);
+    // Rank players by defense (with serving as tiebreaker)
+    const rankedPlayers = [...activePlayers].sort((a, b) => {
+        if (a.defense === b.defense) {
+            return b.serving - a.serving; // Higher serving wins ties
+        }
+        return b.defense - a.defense; // Higher defense ranked higher
+    });
 
-    // Create balanced positioning: alternate high and low defense players
-    const balancedPositions = {
-        backLeft: topDefenders[0],      // Highest defense (server position)
-        frontLeft: topDefenders[5],     // Lowest defense (next to highest)
-        frontMiddle: topDefenders[1],   // Second highest
-        frontRight: topDefenders[4],    // Second lowest (next to second highest)
-        backRight: topDefenders[2],     // Third highest
-        backMiddle: topDefenders[3],    // Third lowest (next to third highest)
+    const topSix = rankedPlayers.slice(0, 6);
+    const benchPlayers = rankedPlayers.slice(6);
+
+    // Create alternating pattern: lowest next to highest, with lower ranked ahead in rotation
+    // Positions 1-6 (backLeft, frontLeft, frontMiddle, frontRight, backRight, backMiddle)
+    const alternatingPositions = {
+        backLeft: topSix[0],        // #1 (highest ranked)
+        frontLeft: topSix[5],       // #6 (lowest ranked, next to highest)
+        frontMiddle: topSix[1],     // #2 (second highest)
+        frontRight: topSix[4],      // #5 (second lowest, next to second highest)
+        backRight: topSix[2],       // #3 (third highest)
+        backMiddle: topSix[3],      // #4 (third lowest, next to third highest)
         bench: benchPlayers
     };
 
-    // Check if this positioning follows star rules
-    if (checkStarRules(balancedPositions)) {
-        const rotations = calculateRotationStrengths(balancedPositions);
-        
-        let aboveThresholdCount = 0;
-        let totalDefense = 0;
-
-        rotations.forEach((rotation) => {
-            if (rotation.frontRowTotal >= minThreshold && rotation.backRowTotal >= minThreshold) {
-                aboveThresholdCount++;
+    // Check star player rules
+    if (!checkStarRules(alternatingPositions)) {
+        // If alternating doesn't work, try different arrangements
+        const arrangements = [
+            {
+                backLeft: topSix[1], frontLeft: topSix[4], frontMiddle: topSix[0],
+                frontRight: topSix[5], backRight: topSix[3], backMiddle: topSix[2],
+                bench: benchPlayers
+            },
+            {
+                backLeft: topSix[2], frontLeft: topSix[5], frontMiddle: topSix[1],
+                frontRight: topSix[4], backRight: topSix[0], backMiddle: topSix[3],
+                bench: benchPlayers
             }
-            totalDefense += rotation.frontRowTotal + rotation.backRowTotal;
-        });
+        ];
 
-        const avgDefense = totalDefense / rotations.length;
-        const thresholdPercent = aboveThresholdCount / rotations.length;
-        
-        const balancedLineup = {
-            positions: balancedPositions,
-            score: avgDefense * 2 + (thresholdPercent * 50),
-            thresholdPercent: thresholdPercent,
-            avgDefense: avgDefense,
-            servingScore: 0,
-            starBonus: 0
-        };
+        let validArrangement = null;
+        for (const arrangement of arrangements) {
+            if (checkStarRules(arrangement)) {
+                validArrangement = arrangement;
+                break;
+            }
+        }
 
-        setBestLineups([balancedLineup]);
-        setCurrentLineupIndex(0);
-        setCourtPositions(balancedPositions);
+        if (validArrangement) {
+            setCourtPositions(validArrangement);
+        } else {
+            alert("Cannot find valid arrangement that follows star player rules. Try adjusting star player positions.");
+            setIsOptimizing(false);
+            return;
+        }
     } else {
-        // Fallback to serving priority if balanced positioning doesn't work with star rules
-        optimizeServingPriority();
-        return;
+        setCourtPositions(alternatingPositions);
     }
+
+    // Calculate performance metrics
+    const currentLineup = alternatingPositions;
+    const rotations = calculateRotationStrengths(currentLineup);
+    
+    let aboveThresholdCount = 0;
+    let totalDefense = 0;
+    let starBonus = 0;
+
+    rotations.forEach((rotation, index) => {
+        if (rotation.frontRowTotal >= minThreshold && rotation.backRowTotal >= minThreshold) {
+            aboveThresholdCount++;
+        }
+        totalDefense += rotation.frontRowTotal + rotation.backRowTotal;
+
+        // Check for 2+ stars on court bonus
+        let currentPos = { ...currentLineup };
+        for (let r = 0; r < index; r++) {
+            const newPos = {
+                backRight: currentPos.backMiddle,
+                frontRight: currentPos.backRight,
+                frontMiddle: currentPos.frontRight,
+                frontLeft: currentPos.frontMiddle,
+                backLeft: currentPos.frontLeft,
+                backMiddle: currentPos.backLeft,
+                bench: [...currentPos.bench]
+            };
+            currentPos = newPos;
+        }
+
+        const courtPlayers = [currentPos.backLeft, currentPos.frontLeft, currentPos.frontMiddle,
+                            currentPos.frontRight, currentPos.backRight, currentPos.backMiddle];
+        const starsOnCourt = courtPlayers.filter(p => p && p.star).length;
+        if (starsOnCourt >= 2) starBonus += 3;
+    });
+
+    const avgDefense = totalDefense / rotations.length;
+    const thresholdPercent = aboveThresholdCount / rotations.length;
+    const score = (avgDefense * 2) + (thresholdPercent * 50) + starBonus;
+
+    const optimizedLineup = {
+        positions: currentLineup,
+        score: score,
+        thresholdPercent: thresholdPercent,
+        avgDefense: avgDefense,
+        servingScore: 0,
+        starBonus: starBonus
+    };
+
+    setBestLineups([optimizedLineup]);
+    setCurrentLineupIndex(0);
     
     setIsOptimizing(false);
 };
