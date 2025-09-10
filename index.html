@@ -1155,14 +1155,14 @@ const rotateWithSubstitutions = (direction) => {
     const totalPlayers = rankedPlayers.length;
     const rotationOrder = [];
     
-    // Build alternating pairs: high with low, with lower ranked ahead
+    // Build alternating pairs: high with low, with higher ranked ahead
     for (let i = 0; i < Math.floor(totalPlayers / 2); i++) {
         const highRanked = rankedPlayers[i];
         const lowRanked = rankedPlayers[totalPlayers - 1 - i];
         
-        // Lower ranked player goes first in rotation
-        rotationOrder.push(lowRanked);
+        // Higher ranked player goes first in rotation
         rotationOrder.push(highRanked);
+        rotationOrder.push(lowRanked);
     }
     
     // If odd number of players, add the middle player at the end
