@@ -807,18 +807,21 @@ const optimizePositions = (courtPlayerList) => {
                 const bestLineup = optimizePositions(courtPlayers);
                 
                 if (bestLineup) {
-                    setCourtPositions(bestLineup);
-                    setBestLineups([{ positions: bestLineup, score: 100 }]);
-                }
-                
-                setSubstitutionCount(0);
-                setSubHistory([]);
-                setRotationCount(0);
-                setIsOptimizing(false);
+    console.log("Setting court positions to:", bestLineup);
+    setCourtPositions(bestLineup);
+    setBestLineups([{ positions: bestLineup, score: 100 }]);
+}
+
+setSubstitutionCount(0);
+setSubHistory([]);
+setRotationCount(0);
+setIsOptimizing(false);
             };
 
 // FIXED: Rotation with automatic substitutions based on position requirements
 const rotateWithSubstitutions = (direction) => {
+    console.log("rotateWithSubstitutions called with direction:", direction, "rotationCount:", rotationCount);
+    
     let newPositions;
     
     if (direction === 'forward') {
