@@ -778,28 +778,83 @@ const optimizePositions = (courtPlayerList) => {
         }
     }
     
-    // Step 4: Fill remaining positions with available players
-    const remainingPlayers = courtPlayerList.filter(p => !usedPlayers.has(p));
-    const backPositions = ['backLeft', 'backMiddle', 'backRight'];
-    const frontPositions = ['frontLeft', 'frontMiddle', 'frontRight'];
-    
-    // Fill back row with best remaining SR players
-    backPositions.forEach(pos => {
-        if (positions[pos] === null && remainingPlayers.length > 0) {
-            const bestSR = remainingPlayers.sort((a, b) => b.serveReceive - a.serveReceive)[0];
-            positions[pos] = bestSR;
-            remainingPlayers.splice(remainingPlayers.indexOf(bestSR), 1);
+    // Step 4: Fill remaining positions with available players, respecting substitution pairs
+const remainingPlayers = courtPlayerList.filter(p => !usedPlayers.has(p));
+const backPositions = ['backLeft', 'backMiddle', 'backRight'];
+const frontPositions = ['frontLeft', 'frontMiddle', 'frontRight'];
+
+// Fill back row positions
+backPositions.forEach(pos => {
+    if (positions[pos] === null && remainingPlayers.length > 0) {
+        // Find the best player for back row, considering substitution pairs
+        let bestPlayer = null;
+        let bestScore = -1;
+        
+        remainingPlayers.forEach(player => {
+            let score = player.serveReceive;
+            
+            // If this player has a substitution pair, check if their partner is on bench
+            if (player.subPair) {
+                const partner = updatedPlayers.find(p => p.id === player.subPair);
+                if (partner && benchPlayers.includes(partner)) {
+                    // This player should be on court for back row if they have better/equal SR
+                    if (player.serveReceive >= partner.serveReceive) {
+                        score += 2; // Bonus for being the correct player from the pair
+                    } else {
+                        score -= 2; // Penalty for being wrong player from pair
+                    }
+                }
+            }
+            
+            if (score > bestScore) {
+                bestScore = score;
+                bestPlayer = player;
+            }
+        });
+        
+        if (bestPlayer) {
+            positions[pos] = bestPlayer;
+            remainingPlayers.splice(remainingPlayers.indexOf(bestPlayer), 1);
         }
-    });
-    
-    // Fill front row with best remaining setting players
-    frontPositions.forEach(pos => {
-        if (positions[pos] === null && remainingPlayers.length > 0) {
-            const bestSetting = remainingPlayers.sort((a, b) => b.setting - a.setting)[0];
-            positions[pos] = bestSetting;
-            remainingPlayers.splice(remainingPlayers.indexOf(bestSetting), 1);
+    }
+});
+
+// Fill front row positions  
+frontPositions.forEach(pos => {
+    if (positions[pos] === null && remainingPlayers.length > 0) {
+        // Find the best player for front row, considering substitution pairs
+        let bestPlayer = null;
+        let bestScore = -1;
+        
+        remainingPlayers.forEach(player => {
+            let score = player.setting;
+            
+            // If this player has a substitution pair, check if their partner is on bench
+            if (player.subPair) {
+                const partner = updatedPlayers.find(p => p.id === player.subPair);
+                if (partner && benchPlayers.includes(partner)) {
+                    // This player should be on court for front row if they have better setting
+                    if (player.setting >= partner.setting) {
+                        score += 2; // Bonus for being the correct player from the pair
+                    } else {
+                        score -= 2; // Penalty for being wrong player from pair
+                    }
+                }
+            }
+            
+            if (score > bestScore) {
+                bestScore = score;
+                bestPlayer = player;
+            }
+        });
+        
+        if (bestPlayer) {
+            positions[pos] = bestPlayer;
+            remainingPlayers.splice(remainingPlayers.indexOf(bestPlayer), 1);
         }
-    });
+    }
+});
+
     
     return positions;
 };
