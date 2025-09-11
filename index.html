@@ -740,13 +740,22 @@ const optimizeSubstitutionalPlay = async () => {
         });
     }
 
-    // Reset tracking
-    setSubstitutionCount(0);
-    setSubHistory([]);
-    setRotationCount(0);
-    setBestLineups([{ positions: { bench: benchPlayers }, score: 100 }]);
-    
-    setIsOptimizing(false);
+    // Step 7: Optimize court positions for maximum back row serve receive
+if (courtPlayers.length >= 6) {
+    const optimizedPositions = optimizeCourtPositions(courtPlayers, unpairedPlayers);
+    setCourtPositions({
+        ...optimizedPositions,
+        bench: benchPlayers
+    });
+}
+
+// Reset tracking
+setSubstitutionCount(0);
+setSubHistory([]);
+setRotationCount(0);
+setBestLineups([{ positions: { bench: benchPlayers }, score: 100 }]);
+
+setIsOptimizing(false);
 };
 
 // Helper function to optimize court positions
