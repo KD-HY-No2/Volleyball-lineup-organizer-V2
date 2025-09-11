@@ -778,16 +778,16 @@ const optimizeCourtPositions = (courtPlayers, unpairedPlayers) => {
     }
 
     // If no valid arrangement found, use default positioning
-    if (!bestPositions) {
-        bestPositions = {
-            backLeft: srSorted[0],
-            backMiddle: srSorted[1], 
-            backRight: srSorted[2],
-            frontLeft: srSorted[3] || courtPlayers[3],
-            frontMiddle: srSorted[4] || courtPlayers[4],
-            frontRight: srSorted[5] || courtPlayers[5]
-        };
-    }
+if (!bestPositions) {
+    bestPositions = {
+        backLeft: courtPlayers[0],
+        frontLeft: courtPlayers[1],
+        frontMiddle: courtPlayers[2],
+        frontRight: courtPlayers[3],
+        backRight: courtPlayers[4],
+        backMiddle: courtPlayers[5]
+    };
+}
 
     return bestPositions;
 };
@@ -808,12 +808,12 @@ const checkUnpairedPositioning = (positions, unpairedPlayers) => {
         }
     });
 
-    // Check if unpaired players maintain front/back balance
+    // Check if unpaired players are exactly 2 rotation positions apart
     if (unpairedPositions.length === 2) {
         const pos1 = unpairedPositions[0];
         const pos2 = unpairedPositions[1];
         const diff = Math.abs(pos1 - pos2);
-        return diff === 3; // Should be exactly 3 positions apart (opposite rows)
+        return diff === 2 || diff === 4; // Exactly 2 positions apart (accounting for circular arrangement)
     }
 
     return true;
