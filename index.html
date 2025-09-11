@@ -181,6 +181,8 @@
             };
 
             // Enhanced player data structure
+            const [optimizationStrategy, setOptimizationStrategy] = useState(0);
+const [players, setPlayers] = useState(() => {
             const [players, setPlayers] = useState(() => {
                 const saved = localStorage.getItem(`volleyball_players_${teamSlots.active}`);
                 if (saved) {
@@ -564,258 +566,302 @@ const handleUpdatePlayer = () => {
                 return sortedByAllAround.slice(0, needFullTime).map(p => p.id);
             };
 
-            // FIXED: Enhanced substitutional play optimization algorithm
-            const optimizeSubstitutionalPlay = async () => {
-                setIsOptimizing(true);
-                
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
-                const activePlayers = players.filter(p => p.active);
-                const noSubPlayers = activePlayers.filter(p => p.star);
-                
-                if (activePlayers.length < 6) {
-                    alert("Need at least 6 active players for optimization.");
-                    setIsOptimizing(false);
-                    return;
-                }
+            // Add strategy state near other state declarations
+const [optimizationStrategy, setOptimizationStrategy] = useState(0); // 0 = strategy 1, 1 = strategy 2
 
-                // Step 1: Determine full-time players
-                const fullTimePlayerIds = determineFullTimePlayers(activePlayers);
-                
-                // Step 2: Generate optimal pairings based on complementary skills
-                const pairablePlayers = activePlayers.filter(p => !p.star && !fullTimePlayerIds.includes(p.id));
-                const pairings = [];
-                const unpaired = [...pairablePlayers];
-                
-                while (unpaired.length >= 2) {
-                    let bestPair = null;
-                    let bestScore = -1;
-                    
-                    for (let i = 0; i < unpaired.length - 1; i++) {
-                        for (let j = i + 1; j < unpaired.length; j++) {
-                            const p1 = unpaired[i];
-                            const p2 = unpaired[j];
-                            
-                            // Score based on complementary skills - prefer different strengths
-                            const srDifference = Math.abs(p1.serveReceive - p2.serveReceive);
-                            const settingDifference = Math.abs(p1.setting - p2.setting);
-                            const allAroundSum = p1.allAround + p2.allAround;
-                            
-                            // Higher score for complementary skills
-                            const pairScore = allAroundSum + (srDifference * 2) + (settingDifference * 2);
-                            
-                            if (pairScore > bestScore) {
-                                bestScore = pairScore;
-                                bestPair = [i, j];
-                            }
-                        }
-                    }
-                    
-                    if (bestPair) {
-                        const [i, j] = bestPair;
-                        const p1 = unpaired[i];
-                        const p2 = unpaired[j];
-                        
-                        pairings.push([p1.id, p2.id]);
-                        
-                        // Remove paired players (remove higher index first)
-                        unpaired.splice(Math.max(i, j), 1);
-                        unpaired.splice(Math.min(i, j), 1);
-                    } else {
-                        break;
-                    }
-                }
-
-                // Step 3: FIXED - Apply the pairings with automatic color assignment and proper persistence
-const updatedPlayers = [...players];
-
-// Clear existing pairs first
-updatedPlayers.forEach(p => {
-    if (!p.star) {  // Don't clear star players
-        p.subPair = null;
-        p.subColor = null;
-        p.isFullTime = false;
-    }
-});
-
-// Mark full-time players
-fullTimePlayerIds.forEach(id => {
-    const player = updatedPlayers.find(p => p.id === id);
-    if (player) player.isFullTime = true;
-});
-
-// Apply pairings with colors
-pairings.forEach(([id1, id2], index) => {
-    const p1 = updatedPlayers.find(p => p.id === id1);
-    const p2 = updatedPlayers.find(p => p.id === id2);
+// Complete replacement for optimizeSubstitutionalPlay function
+const optimizeSubstitutionalPlay = async () => {
+    setIsOptimizing(true);
     
-    if (p1 && p2) {
-        const assignedColor = index % SUB_COLORS.length;
-        p1.subPair = id2;
-        p1.subColor = assignedColor;
-        p2.subPair = id1;
-        p2.subColor = assignedColor;
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    const activePlayers = players.filter(p => p.active);
+    
+    if (activePlayers.length < 6) {
+        alert("Need at least 6 active players for optimization.");
+        setIsOptimizing(false);
+        return;
     }
-});
 
-// Update state with fixed color assignment
-setPlayers(updatedPlayers);
-        // Step 4: FIXED - Generate optimal starting lineup ensuring NO paired players on court together
-const courtPlayers = [];
-const benchPlayers = [];
+    // Clear existing pairs and markings
+    const updatedPlayers = [...players];
+    updatedPlayers.forEach(p => {
+        if (p.active) {
+            p.subPair = null;
+            p.subColor = null;
+            p.isFullTime = false;
+            p.star = false;
+        }
+    });
 
-// Add all no-sub and full-time players to court first
-const priorityPlayers = updatedPlayers.filter(p => 
-    p.active && (p.star || p.isFullTime)
-);
-courtPlayers.push(...priorityPlayers);
+    // Step 1: Rank players by overall rating (allAround score)
+    const rankedPlayers = [...activePlayers].sort((a, b) => b.allAround - a.allAround);
+    
+    // Step 2: Determine unpaired (full-time) players
+    const numPlayers = activePlayers.length;
+    let numUnpaired;
+    
+    if (numPlayers <= 6) {
+        numUnpaired = numPlayers; // Everyone is unpaired
+    } else if (numPlayers <= 8) {
+        numUnpaired = 2; // Top 2 are unpaired
+    } else if (numPlayers <= 10) {
+        numUnpaired = numPlayers % 2; // 0 or 1 unpaired to make even pairs
+    } else {
+        numUnpaired = Math.max(2, numPlayers % 2); // At least 2, more if needed for even pairs
+    }
 
-// FIXED: Add exactly ONE player from each sub pair to court
-const processedPairs = new Set();
-updatedPlayers.forEach(player => {
-    if (player.subPair && !processedPairs.has(player.id) && !processedPairs.has(player.subPair)) {
-        const partner = updatedPlayers.find(p => p.id === player.subPair);
-        if (partner && courtPlayers.length < 6) {
-            // Choose the better serve receive player to start
-            const starterPlayer = player.serveReceive >= partner.serveReceive ? player : partner;
-            const benchPlayer = starterPlayer === player ? partner : player;
+    // Step 3: Mark unpaired players
+    const unpairedPlayers = rankedPlayers.slice(0, numUnpaired);
+    unpairedPlayers.forEach(player => {
+        const updatedPlayer = updatedPlayers.find(p => p.id === player.id);
+        if (updatedPlayer) {
+            updatedPlayer.star = true;
+            updatedPlayer.isFullTime = true;
+        }
+    });
+
+    // Step 4: Create pairs from remaining players
+    const pairablePlayers = rankedPlayers.slice(numUnpaired);
+    const pairs = [];
+    
+    // Strategy-specific pairing logic
+    if (optimizationStrategy === 0) {
+        // Strategy 1: Separate lowest 2 players into different pairs
+        if (pairablePlayers.length >= 4) {
+            const lowestPlayer = pairablePlayers[pairablePlayers.length - 1];
+            const secondLowestPlayer = pairablePlayers[pairablePlayers.length - 2];
             
-            courtPlayers.push(starterPlayer);
-            benchPlayers.push(benchPlayer);
+            // Remove lowest players from main pairing pool
+            const mainPairingPool = pairablePlayers.slice(0, -2);
             
-            processedPairs.add(player.id);
-            processedPairs.add(partner.id);
-        } else if (partner) {
-            // Court is full, both go to bench
-            benchPlayers.push(player, partner);
-            processedPairs.add(player.id);
-            processedPairs.add(partner.id);
+            // Sort remaining by serve receive for pairing with lowest players
+            const srSorted = mainPairingPool.sort((a, b) => b.serveReceive - a.serveReceive);
+            
+            // Pair each low player with a high SR player
+            if (srSorted.length >= 2) {
+                pairs.push([lowestPlayer, srSorted[0]]);
+                pairs.push([secondLowestPlayer, srSorted[1]]);
+                
+                // Pair remaining players
+                const remaining = srSorted.slice(2);
+                for (let i = 0; i < remaining.length - 1; i += 2) {
+                    pairs.push([remaining[i], remaining[i + 1]]);
+                }
+            }
+        } else {
+            // Not enough for strategy 1, fall back to basic pairing
+            for (let i = 0; i < pairablePlayers.length - 1; i += 2) {
+                pairs.push([pairablePlayers[i], pairablePlayers[i + 1]]);
+            }
         }
-    }
-});
-
-// Fill remaining court spots if needed
-const remainingPlayers = updatedPlayers.filter(p => 
-    p.active && !courtPlayers.includes(p) && !benchPlayers.includes(p)
-);
-while (courtPlayers.length < 6 && remainingPlayers.length > 0) {
-    courtPlayers.push(remainingPlayers.shift());
-}
-benchPlayers.push(...remainingPlayers);
-                // Step 5: FIXED - Optimize court positions with no-sub distribution and top player placement
-const optimizePositions = (courtPlayerList) => {
-    if (courtPlayerList.length < 6) return null;
-    
-    const noSubPlayers = courtPlayerList.filter(p => p.star || p.isFullTime);
-    const subPlayers = courtPlayerList.filter(p => !p.star && !p.isFullTime);
-    
-    // Sort players by overall rating to identify top player
-    const sortedByOverall = [...courtPlayerList].sort((a, b) => b.allAround - a.allAround);
-    const topPlayer = sortedByOverall[0];
-    
-    // Sort by serve receive to identify worst SR player
-    const sortedBySR = [...courtPlayerList].sort((a, b) => a.serveReceive - b.serveReceive);
-    const worstSRPlayer = sortedBySR[0];
-    
-    // Initialize positions
-    let positions = {
-        backLeft: null, backMiddle: null, backRight: null,
-        frontLeft: null, frontMiddle: null, frontRight: null,
-        bench: benchPlayers
-    };
-    
-    const usedPlayers = new Set();
-    
-    // Step 1: Distribute no-sub players to ensure at least one in each row
-    if (noSubPlayers.length >= 2) {
-        // Place first no-sub in front left
-        positions.frontLeft = noSubPlayers[0];
-        usedPlayers.add(noSubPlayers[0]);
-        
-        // Place second no-sub in back right (opposite rotation)
-        positions.backRight = noSubPlayers[1];
-        usedPlayers.add(noSubPlayers[1]);
-        
-        // If there's a third no-sub player, place in remaining position
-        if (noSubPlayers.length >= 3 && !usedPlayers.has(noSubPlayers[2])) {
-            positions.backMiddle = noSubPlayers[2];
-            usedPlayers.add(noSubPlayers[2]);
-        }
-    } else if (noSubPlayers.length === 1) {
-        positions.frontLeft = noSubPlayers[0];
-        usedPlayers.add(noSubPlayers[0]);
-    }
-    
-    // Step 2: Place worst SR player in back row (server position preferred)
-    if (!usedPlayers.has(worstSRPlayer)) {
-        if (positions.backLeft === null) {
-            positions.backLeft = worstSRPlayer;
-        } else if (positions.backMiddle === null) {
-            positions.backMiddle = worstSRPlayer;
-        } else if (positions.backRight === null) {
-            positions.backRight = worstSRPlayer;
-        }
-        usedPlayers.add(worstSRPlayer);
-    }
-    
-    // Step 3: Place top player adjacent to worst SR player (if not already placed)
-    if (!usedPlayers.has(topPlayer)) {
-        let adjacentPosition = null;
-        
-        // Find where worst SR player was placed and choose adjacent position
-        if (positions.backLeft === worstSRPlayer) {
-            adjacentPosition = positions.frontLeft === null ? 'frontLeft' : 'backMiddle';
-        } else if (positions.backMiddle === worstSRPlayer) {
-            adjacentPosition = positions.frontMiddle === null ? 'frontMiddle' : 
-                             (positions.frontLeft === null ? 'frontLeft' : 'frontRight');
-        } else if (positions.backRight === worstSRPlayer) {
-            adjacentPosition = positions.frontRight === null ? 'frontRight' : 'backMiddle';
-        }
-        
-        if (adjacentPosition && positions[adjacentPosition] === null) {
-            positions[adjacentPosition] = topPlayer;
-            usedPlayers.add(topPlayer);
+    } else {
+        // Strategy 2: Pair lowest 2 players together
+        if (pairablePlayers.length >= 2) {
+            const lowestPlayer = pairablePlayers[pairablePlayers.length - 1];
+            const secondLowestPlayer = pairablePlayers[pairablePlayers.length - 2];
+            
+            pairs.push([lowestPlayer, secondLowestPlayer]);
+            
+            // Pair remaining players optimally
+            const remaining = pairablePlayers.slice(0, -2);
+            for (let i = 0; i < remaining.length - 1; i += 2) {
+                pairs.push([remaining[i], remaining[i + 1]]);
+            }
         }
     }
 
-    // Step 4: Fill remaining positions with available players
-const remainingPlayers = courtPlayerList.filter(p => !usedPlayers.has(p));
-const backPositions = ['backLeft', 'backMiddle', 'backRight'];
-const frontPositions = ['frontLeft', 'frontMiddle', 'frontRight'];
-
-// Fill back row with best SR players
-backPositions.forEach(pos => {
-    if (positions[pos] === null && remainingPlayers.length > 0) {
-        const bestSR = remainingPlayers.sort((a, b) => b.serveReceive - a.serveReceive)[0];
-        positions[pos] = bestSR;
-        remainingPlayers.splice(remainingPlayers.indexOf(bestSR), 1);
-    }
-});
-
-// Fill front row with best setting players  
-frontPositions.forEach(pos => {
-    if (positions[pos] === null && remainingPlayers.length > 0) {
-        const bestSetting = remainingPlayers.sort((a, b) => b.setting - a.setting)[0];
-        positions[pos] = bestSetting;
-        remainingPlayers.splice(remainingPlayers.indexOf(bestSetting), 1);
-    }
-});
+    // Step 5: Apply color coding to pairs
+    pairs.forEach(([player1, player2], index) => {
+        const colorIndex = index % SUB_COLORS.length;
         
-    return positions;
+        const p1 = updatedPlayers.find(p => p.id === player1.id);
+        const p2 = updatedPlayers.find(p => p.id === player2.id);
+        
+        if (p1 && p2) {
+            p1.subPair = player2.id;
+            p1.subColor = colorIndex;
+            p2.subPair = player1.id;
+            p2.subColor = colorIndex;
+        }
+    });
+
+    setPlayers(updatedPlayers);
+
+    // Step 6: Generate optimal starting lineup
+    const courtPlayers = [];
+    const benchPlayers = [];
+
+    // Add all unpaired players first
+    courtPlayers.push(...unpairedPlayers);
+
+    // Add one player from each pair, choosing based on position needs
+    const processedPairs = new Set();
+    updatedPlayers.forEach(player => {
+        if (player.active && player.subPair && !processedPairs.has(player.id)) {
+            const partner = updatedPlayers.find(p => p.id === player.subPair);
+            if (partner) {
+                processedPairs.add(player.id);
+                processedPairs.add(partner.id);
+
+                // For starting lineup, prefer better overall player
+                const starterPlayer = player.allAround >= partner.allAround ? player : partner;
+                const benchPlayer = starterPlayer === player ? partner : player;
+                
+                if (courtPlayers.length < 6) {
+                    courtPlayers.push(starterPlayer);
+                    benchPlayers.push(benchPlayer);
+                } else {
+                    benchPlayers.push(starterPlayer, benchPlayer);
+                }
+            }
+        }
+    });
+
+    // Fill remaining court spots with highest rated available
+    const remainingPlayers = updatedPlayers.filter(p => 
+        p.active && !courtPlayers.includes(p) && !benchPlayers.includes(p)
+    );
+    const sortedRemaining = remainingPlayers.sort((a, b) => b.allAround - a.allAround);
+    
+    while (courtPlayers.length < 6 && sortedRemaining.length > 0) {
+        courtPlayers.push(sortedRemaining.shift());
+    }
+    benchPlayers.push(...sortedRemaining);
+
+    // Step 7: Optimize court positions for maximum back row serve receive
+    if (courtPlayers.length >= 6) {
+        const optimizedPositions = optimizeCourtPositions(courtPlayers, unpairedPlayers);
+        setCourtPositions({
+            ...optimizedPositions,
+            bench: benchPlayers
+        });
+    }
+
+    // Reset tracking
+    setSubstitutionCount(0);
+    setSubHistory([]);
+    setRotationCount(0);
+    setBestLineups([{ positions: { bench: benchPlayers }, score: 100 }]);
+    
+    setIsOptimizing(false);
 };
 
-                const bestLineup = optimizePositions(courtPlayers);
-                
-                if (bestLineup) {
-    setCourtPositions(bestLineup);
-    setBestLineups([{ positions: bestLineup, score: 100 }]);
-}
+// Helper function to optimize court positions
+const optimizeCourtPositions = (courtPlayers, unpairedPlayers) => {
+    // Sort players by serve receive for back row optimization
+    const srSorted = [...courtPlayers].sort((a, b) => b.serveReceive - a.serveReceive);
+    
+    let bestPositions = null;
+    let bestMinSR = -1;
 
-setSubstitutionCount(0);
-setSubHistory([]);
-setRotationCount(0);
-setIsOptimizing(false);
-            };
+    // Try different rotational arrangements to find best minimum back row SR
+    for (let startPos = 0; startPos < 6; startPos++) {
+        const testPositions = {
+            backLeft: courtPlayers[startPos % 6],
+            frontLeft: courtPlayers[(startPos + 1) % 6],
+            frontMiddle: courtPlayers[(startPos + 2) % 6],
+            frontRight: courtPlayers[(startPos + 3) % 6],
+            backRight: courtPlayers[(startPos + 4) % 6],
+            backMiddle: courtPlayers[(startPos + 5) % 6]
+        };
+
+        // Check if unpaired players are positioned correctly (front/back balance)
+        if (!checkUnpairedPositioning(testPositions, unpairedPlayers)) {
+            continue;
+        }
+
+        // Calculate minimum back row SR across all rotations
+        const minSR = calculateMinBackRowSR(testPositions);
+        
+        if (minSR > bestMinSR) {
+            bestMinSR = minSR;
+            bestPositions = testPositions;
+        }
+    }
+
+    // If no valid arrangement found, use default positioning
+    if (!bestPositions) {
+        bestPositions = {
+            backLeft: srSorted[0],
+            backMiddle: srSorted[1], 
+            backRight: srSorted[2],
+            frontLeft: srSorted[3] || courtPlayers[3],
+            frontMiddle: srSorted[4] || courtPlayers[4],
+            frontRight: srSorted[5] || courtPlayers[5]
+        };
+    }
+
+    return bestPositions;
+};
+
+// Helper function to check unpaired player positioning
+const checkUnpairedPositioning = (positions, unpairedPlayers) => {
+    if (unpairedPlayers.length < 2) return true;
+
+    const positionArray = [
+        positions.backLeft, positions.frontLeft, positions.frontMiddle,
+        positions.frontRight, positions.backRight, positions.backMiddle
+    ];
+
+    const unpairedPositions = [];
+    positionArray.forEach((player, index) => {
+        if (unpairedPlayers.some(up => up.id === player.id)) {
+            unpairedPositions.push(index);
+        }
+    });
+
+    // Check if unpaired players maintain front/back balance
+    if (unpairedPositions.length === 2) {
+        const pos1 = unpairedPositions[0];
+        const pos2 = unpairedPositions[1];
+        const diff = Math.abs(pos1 - pos2);
+        return diff === 3; // Should be exactly 3 positions apart (opposite rows)
+    }
+
+    return true;
+};
+
+// Helper function to calculate minimum back row SR across rotations
+const calculateMinBackRowSR = (startPositions) => {
+    let minSR = Infinity;
+    let currentPositions = { ...startPositions };
+
+    for (let rotation = 0; rotation < 6; rotation++) {
+        const backRowSR = (currentPositions.backLeft?.serveReceive || 0) +
+                         (currentPositions.backMiddle?.serveReceive || 0) +
+                         (currentPositions.backRight?.serveReceive || 0);
+        
+        minSR = Math.min(minSR, backRowSR);
+
+        // Rotate positions
+        const newPositions = {
+            backRight: currentPositions.backMiddle,
+            frontRight: currentPositions.backRight,
+            frontMiddle: currentPositions.frontRight,
+            frontLeft: currentPositions.frontMiddle,
+            backLeft: currentPositions.frontLeft,
+            backMiddle: currentPositions.backLeft
+        };
+        currentPositions = newPositions;
+    }
+
+    return minSR;
+};
+
+// Strategy definitions (expandable for future)
+const SUBSTITUTIONAL_STRATEGIES = [
+    { id: 0, name: 'Separate Lowest Players', description: 'Places lowest 2 players in different pairs' },
+    { id: 1, name: 'Pair Lowest Players', description: 'Places lowest 2 players in same pair' }
+    // Future strategies can be added here
+];
+
+// Modified shuffle function to cycle strategies  
+const shuffleSubstitutionalStrategy = () => {
+    setOptimizationStrategy(prev => (prev + 1) % SUBSTITUTIONAL_STRATEGIES.length);
+    // Re-run optimization with new strategy
+    setTimeout(() => optimizeSubstitutionalPlay(), 100);
+};
 
 // FIXED: Rotation with automatic substitutions based on position requirements
 const rotateWithSubstitutions = (direction) => {
@@ -1864,18 +1910,28 @@ const calculateCurrentStrengths = () => {
                         )
                     )
                 ) : (
-                    React.createElement('div', { className: "mb-4 p-3 bg-green-50 border border-green-200 rounded-lg" },
-                        React.createElement('div', { className: "text-sm font-medium text-green-800 mb-1" },
-                            "Substitutional Play Mode"
-                        ),
-                        React.createElement('div', { className: "text-xs text-green-700 mb-2" },
-                            "⭐ Gold tiles = no substitution partner. Matching colors = paired for substitutions."
-                        ),
-                        React.createElement('div', { className: "text-xs text-green-600" },
-                            `No-Sub Players: ${players.filter(p => p.star || p.isFullTime).length} | Sub Pairs: ${Math.floor(players.filter(p => p.subPair).length / 2)}`
-                        )
-                    )
-                ),
+    React.createElement('div', { className: "mb-4 space-y-2" },
+        React.createElement('div', { className: "p-3 bg-green-50 border border-green-200 rounded-lg" },
+            React.createElement('div', { className: "text-sm font-medium text-green-800 mb-1" },
+                "Substitutional Play Mode"
+            ),
+            React.createElement('div', { className: "text-xs text-green-700 mb-2" },
+                "⭐ Gold tiles = no substitution partner. Matching colors = paired for substitutions."
+            ),
+            React.createElement('div', { className: "text-xs text-green-600" },
+                `No-Sub Players: ${players.filter(p => p.star || p.isFullTime).length} | Sub Pairs: ${Math.floor(players.filter(p => p.subPair).length / 2)}`
+            )
+        ),
+        React.createElement('div', { className: "p-2 bg-blue-50 border border-blue-200 rounded-lg" },
+            React.createElement('div', { className: "text-sm font-medium text-blue-800 text-center" },
+                `Strategy ${optimizationStrategy + 1}: ${SUBSTITUTIONAL_STRATEGIES[optimizationStrategy].name}`
+            ),
+            React.createElement('div', { className: "text-xs text-blue-600 text-center mt-1" },
+                SUBSTITUTIONAL_STRATEGIES[optimizationStrategy].description
+            )
+        )
+    )
+),
 
                 // Court Display
                 React.createElement(CourtDisplay),
@@ -1928,13 +1984,13 @@ const calculateCurrentStrengths = () => {
                             )
                         ),
                         React.createElement('button', {
-                            onClick: shuffleStandardPlay,
-                            className: "px-3 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400",
-                            disabled: bestLineups.length === 0,
-                            title: "Shuffle through best lineups"
-                        },
-                            "🔀"
-                        )
+    onClick: playMode === 'substitutional' ? shuffleSubstitutionalStrategy : shuffleStandardPlay,
+    className: "px-3 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400",
+    disabled: playMode === 'substitutional' ? players.filter(p => p.active).length < 6 : bestLineups.length === 0,
+    title: playMode === 'substitutional' ? "Switch optimization strategy" : "Shuffle through best lineups"
+},
+    "🔀"
+)
                     ),
                     React.createElement('div', { className: "flex gap-2 mt-2" },
     React.createElement('button', {
