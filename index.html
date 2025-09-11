@@ -183,8 +183,7 @@
             // Enhanced player data structure
             const [optimizationStrategy, setOptimizationStrategy] = useState(0);
 const [players, setPlayers] = useState(() => {
-            const [players, setPlayers] = useState(() => {
-                const saved = localStorage.getItem(`volleyball_players_${teamSlots.active}`);
+             const saved = localStorage.getItem(`volleyball_players_${teamSlots.active}`);
                 if (saved) {
                     const parsedPlayers = JSON.parse(saved);
                     return parsedPlayers.map(p => ({
@@ -566,9 +565,7 @@ const handleUpdatePlayer = () => {
                 return sortedByAllAround.slice(0, needFullTime).map(p => p.id);
             };
 
-            // Add strategy state near other state declarations
-const [optimizationStrategy, setOptimizationStrategy] = useState(0); // 0 = strategy 1, 1 = strategy 2
-
+            
 // Complete replacement for optimizeSubstitutionalPlay function
 const optimizeSubstitutionalPlay = async () => {
     setIsOptimizing(true);
