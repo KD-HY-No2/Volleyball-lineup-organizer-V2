@@ -573,13 +573,56 @@ const SUBSTITUTIONAL_STRATEGIES = [
 
 // Helper function to optimize court positions
 const optimizeCourtPositions = (courtPlayers, unpairedPlayers) => {
-    // Sort players by serve receive for back row optimization
-    const srSorted = [...courtPlayers].sort((a, b) => b.serveReceive - a.serveReceive);
+    // Special handling for exactly 2 unpaired players
+    if (unpairedPlayers.length === 2) {
+        const paired = courtPlayers.filter(p => !unpairedPlayers.some(up => up.id === p.id));
+        const unpaired1 = unpairedPlayers[0];
+        const unpaired2 = unpairedPlayers[1];
+        
+        // Try different arrangements where unpaired players are 3 positions apart
+        const validArrangements = [
+            // unpaired1 at position 0 (backLeft), unpaired2 at position 3 (frontRight)
+            [unpaired1, paired[0], paired[1], unpaired2, paired[2], paired[3]],
+            // unpaired1 at position 1 (frontLeft), unpaired2 at position 4 (backRight)
+            [paired[0], unpaired1, paired[1], paired[2], unpaired2, paired[3]],
+            // unpaired1 at position 2 (frontMiddle), unpaired2 at position 5 (backMiddle)
+            [paired[0], paired[1], unpaired1, paired[2], paired[3], unpaired2]
+        ];
+        
+        let bestPositions = null;
+        let bestMinSR = -1;
+        
+        for (const arrangement of validArrangements) {
+            const testPositions = {
+                backLeft: arrangement[0],
+                frontLeft: arrangement[1],
+                frontMiddle: arrangement[2],
+                frontRight: arrangement[3],
+                backRight: arrangement[4],
+                backMiddle: arrangement[5]
+            };
+            
+            const minSR = calculateMinBackRowSR(testPositions);
+            if (minSR > bestMinSR) {
+                bestMinSR = minSR;
+                bestPositions = testPositions;
+            }
+        }
+        
+        return bestPositions || {
+            backLeft: courtPlayers[0],
+            frontLeft: courtPlayers[1],
+            frontMiddle: courtPlayers[2],
+            frontRight: courtPlayers[3],
+            backRight: courtPlayers[4],
+            backMiddle: courtPlayers[5]
+        };
+    }
     
+    // Original logic for other cases
     let bestPositions = null;
     let bestMinSR = -1;
 
-    // Try different rotational arrangements to find best minimum back row SR
     for (let startPos = 0; startPos < 6; startPos++) {
         const testPositions = {
             backLeft: courtPlayers[startPos % 6],
@@ -590,12 +633,10 @@ const optimizeCourtPositions = (courtPlayers, unpairedPlayers) => {
             backMiddle: courtPlayers[(startPos + 5) % 6]
         };
 
-        // Check if unpaired players are positioned correctly (front/back balance)
         if (!checkUnpairedPositioning(testPositions, unpairedPlayers)) {
             continue;
         }
 
-        // Calculate minimum back row SR across all rotations
         const minSR = calculateMinBackRowSR(testPositions);
         
         if (minSR > bestMinSR) {
@@ -604,7 +645,6 @@ const optimizeCourtPositions = (courtPlayers, unpairedPlayers) => {
         }
     }
 
-    // If no valid arrangement found, use default positioning
     if (!bestPositions) {
         bestPositions = {
             backLeft: courtPlayers[0],
