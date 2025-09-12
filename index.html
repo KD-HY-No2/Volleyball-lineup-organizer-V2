@@ -904,17 +904,6 @@ pairCandidates.forEach(pair => {
 });
 benchPlayers.push(...sortedRemaining);
 
-    // Fill remaining court spots with highest rated available
-    const remainingPlayers = updatedPlayers.filter(p => 
-        p.active && !courtPlayers.includes(p) && !benchPlayers.includes(p)
-    );
-    const sortedRemaining = remainingPlayers.sort((a, b) => b.allAround - a.allAround);
-    
-    while (courtPlayers.length < 6 && sortedRemaining.length > 0) {
-        courtPlayers.push(sortedRemaining.shift());
-    }
-    benchPlayers.push(...sortedRemaining);
-
     setPlayers(updatedPlayers);
 
 // Step 7: Intelligently assign court positions based on player strengths
