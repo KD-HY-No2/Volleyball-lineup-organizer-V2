@@ -834,15 +834,24 @@ const optimizeSubstitutionalPlay = async () => {
     }
     benchPlayers.push(...sortedRemaining);
 
-    // Step 7: Optimize court positions for maximum back row serve receive
-    if (courtPlayers.length >= 6) {
-        const optimizedPositions = optimizeCourtPositions(courtPlayers, unpairedPlayers);
-        setCourtPositions({
-            ...optimizedPositions,
-            bench: benchPlayers
-        });
-    }
+// Step 7: Optimize court positions for maximum back row serve receive
+if (courtPlayers.length >= 6) {
+    const optimizedPositions = optimizeCourtPositions(courtPlayers, unpairedPlayers);
+    setCourtPositions({
+        ...optimizedPositions,
+        bench: benchPlayers
+    });
+}
 
+// Reset tracking
+setSubstitutionCount(0);
+setSubHistory([]);
+setRotationCount(0);
+setBestLineups([{ positions: { bench: benchPlayers }, score: 100 }]);
+
+setIsOptimizing(false);
+};
+            
 // Modified shuffle function to cycle strategies  
 const shuffleSubstitutionalStrategy = () => {
     setOptimizationStrategy(prev => (prev + 1) % SUBSTITUTIONAL_STRATEGIES.length);
