@@ -1141,4 +1141,1234 @@
                         }
                     }
                 }
-              
+          // Step 5: Apply color coding to pairs
+                pairs.forEach(([player1, player2], index) => {
+                    const colorIndex = index % SUB_COLORS.length;
+                    
+                    const p1 = updatedPlayers.find(p => p.id === player1.id);
+                    const p2 = updatedPlayers.find(p => p.id === player2.id);
+                    
+                    if (p1 && p2) {
+                        p1.subPair = player2.id;
+                        p1.subColor = colorIndex;
+                        p2.subPair = player1.id;
+                        p2.subColor = colorIndex;
+                    }
+                });
+
+                // Step 6: Generate optimal starting lineup
+                const courtPlayers = [];
+                const benchPlayers = [];
+
+                // Add all unpaired players first
+                courtPlayers.push(...unpairedPlayers);
+
+               // Add one player from each pair - temporarily add both, we'll optimize positions later
+                const processedPairs = new Set();
+                const pairCandidates = [];
+
+                updatedPlayers.forEach(player => {
+                    if (player.active && player.subPair && !processedPairs.has(player.id)) {
+                        const partner = updatedPlayers.find(p => p.id === player.subPair);
+                        if (partner) {
+                            processedPairs.add(player.id);
+                            processedPairs.add(partner.id);
+                            pairCandidates.push({ player1: player, player2: partner });
+                        }
+                    }
+                });
+
+                // Fill remaining court spots with highest rated available
+                const remainingPlayers = updatedPlayers.filter(p => 
+                    p.active && !courtPlayers.includes(p) && !pairCandidates.some(pair => 
+                        pair.player1.id === p.id || pair.player2.id === p.id)
+                );
+                const sortedRemaining = remainingPlayers.sort((a, b) => b.allAround - a.allAround);
+
+                while (courtPlayers.length < 6 && (pairCandidates.length > 0 || sortedRemaining.length > 0)) {
+                    if (pairCandidates.length > 0) {
+                        const pair = pairCandidates.shift();
+                        courtPlayers.push(pair.player1); // Temporarily add player1, will optimize below
+                        benchPlayers.push(pair.player2);
+                    } else if (sortedRemaining.length > 0) {
+                        courtPlayers.push(sortedRemaining.shift());
+                    }
+                }
+   // Add remaining candidates to bench
+                pairCandidates.forEach(pair => {
+                    benchPlayers.push(pair.player1, pair.player2);
+                });
+                benchPlayers.push(...sortedRemaining);
+
+                setPlayers(updatedPlayers);
+
+                // Step 7: Intelligently assign court positions based on player strengths
+                if (courtPlayers.length >= 6) {
+                    // First, create initial position assignments
+                    const initialPositions = optimizeCourtPositions(courtPlayers, unpairedPlayers);
+                    
+                    // Now, for each pair, ensure the right player is on court for their starting position
+                    const finalCourtPlayers = [...courtPlayers];
+                    const finalBenchPlayers = [...benchPlayers];
+                    
+                    // Check each position and swap with bench partner if needed for optimal positioning
+                    Object.keys(initialPositions).forEach(position => {
+                        if (position === 'bench' || !initialPositions[position]) return;
+                        
+                        const currentPlayer = initialPositions[position];
+                        const benchPartner = finalBenchPlayers.find(p => p.subPair === currentPlayer.id);
+                        
+                        if (benchPartner) {
+                            const isBackRow = isBackRowPosition(position);
+                            let shouldSwap = false;
+                            
+                            if (isBackRow) {
+                                // Back row: prefer higher serve receive
+                                shouldSwap = benchPartner.serveReceive > currentPlayer.serveReceive;
+                            } else {
+                                // Front row: prefer higher setting
+                                shouldSwap = benchPartner.setting > currentPlayer.setting;
+                            }
+                            
+                            if (shouldSwap) {
+                                // Swap the players
+                                const courtIndex = finalCourtPlayers.indexOf(currentPlayer);
+                                const benchIndex = finalBenchPlayers.indexOf(benchPartner);
+                                
+                                if (courtIndex >= 0 && benchIndex >= 0) {
+                                    finalCourtPlayers[courtIndex] = benchPartner;
+                                    finalBenchPlayers[benchIndex] = currentPlayer;
+                                    initialPositions[position] = benchPartner;
+                                }
+                            }
+                        }
+                    });
+                    
+                    setCourtPositions({
+                        ...initialPositions,
+                        bench: finalBenchPlayers
+                    });
+                }
+
+                // Reset tracking
+                setSubstitutionCount(0);
+                setSubHistory([]);
+                setRotationCount(0);
+                setBestLineups([{ positions: { bench: benchPlayers }, score: 100 }]);
+
+                setIsOptimizing(false);
+            };
+            
+            // Modified shuffle function to cycle strategies  
+            const shuffleSubstitutionalStrategy = () => {
+                setOptimizationStrategy(prev => (prev + 1) % SUBSTITUTIONAL_STRATEGIES.length);
+                // Re-run optimization with new strategy
+                setTimeout(() => optimizeSubstitutionalPlay(), 100);
+            };
+
+            // FIXED: Rotation with automatic substitutions based on position requirements
+            const rotateWithSubstitutions = (direction) => {
+                let newPositions;
+                
+                if (direction === 'forward') {
+                    newPositions = {
+                        backRight: courtPositions.backMiddle,
+                        frontRight: courtPositions.backRight,
+                        frontMiddle: courtPositions.frontRight,
+                        frontLeft: courtPositions.frontMiddle,
+                        backLeft: courtPositions.frontLeft,
+                        backMiddle: courtPositions.backLeft,
+                        bench: [...courtPositions.bench]
+                    };
+                } else {
+                    newPositions = {
+                        frontLeft: courtPositions.backLeft,
+                        frontMiddle: courtPositions.frontLeft,
+                        frontRight: courtPositions.frontMiddle,
+                        backRight: courtPositions.frontRight,
+                        backMiddle: courtPositions.backRight,
+                        backLeft: courtPositions.backMiddle,
+                        bench: [...courtPositions.bench]
+                    };
+                }
+
+                // Check for required substitutions after rotation
+                const substitutions = [];
+                Object.keys(newPositions).forEach(position => {
+                if (position === 'bench') return;
+                
+                const currentPlayer = newPositions[position];
+                if (!currentPlayer || !currentPlayer.subPair) return;
+                
+                const partner = players.find(p => p.id === currentPlayer.subPair);
+                if (!partner) return;
+                
+                const isBackRow = isBackRowPosition(position);
+                
+                // Enhanced logic: Ensure fair play by alternating players based on position needs
+                let shouldSubstitute;
+                
+                if (isBackRow) {
+                    // Back row: substitute if partner has better OR EQUAL serve receive (fair play)
+                    shouldSubstitute = partner.serveReceive >= currentPlayer.serveReceive;
+                } else {
+                    // Front row: Always substitute unless current player has better setting AND better/equal SR
+                    if (currentPlayer.setting > partner.setting && currentPlayer.serveReceive >= partner.serveReceive) {
+                        // Current player is clearly better suited for front row - keep them
+                        shouldSubstitute = false;
+                    } else if (partner.setting > currentPlayer.setting) {
+                        // Partner has better setting - substitute them in
+                        shouldSubstitute = true;
+                    } else {
+                        // Equal or mixed skills - ensure fair play by checking who played back row
+                        // If current player has better SR, they should have played back row, so substitute them out for fair play
+                        shouldSubstitute = currentPlayer.serveReceive >= partner.serveReceive;
+                    }
+                }
+                
+                if (shouldSubstitute && newPositions.bench.includes(partner)) {
+                    let reason;
+                    if (isBackRow) {
+                        reason = partner.serveReceive > currentPlayer.serveReceive ? 'Better SR for back row' : 'Fair play rotation';
+                    } else {
+                        if (partner.setting > currentPlayer.setting) {
+                            reason = 'Better setting for front row';
+                        } else if (currentPlayer.serveReceive >= partner.serveReceive) {
+                            reason = 'Fair play rotation';
+                        } else {
+                            reason = 'Position rotation';
+                        }
+                    }
+                            
+                    substitutions.push({
+                        position,
+                        outPlayer: currentPlayer,
+                        inPlayer: partner,
+                        reason: reason
+                    });
+                }
+            });
+
+                // Apply substitutions
+                substitutions.forEach(sub => {
+                    newPositions[sub.position] = sub.inPlayer;
+                    
+                    // Remove incoming player from bench
+                    const benchIndex = newPositions.bench.findIndex(p => p.id === sub.inPlayer.id);
+                    if (benchIndex >= 0) {
+                        newPositions.bench.splice(benchIndex, 1);
+                    }
+                    
+                    // Add outgoing player to bench
+                    newPositions.bench.push(sub.outPlayer);
+                    
+                    // Update tracking - add for forward, subtract for backward
+                    if (direction === 'forward') {
+                        setSubstitutionCount(prev => prev + 1);
+                        setSubHistory(prev => [...prev, {
+                            rotation: rotationCount + (direction === 'forward' ? 1 : -1),
+                            out: sub.outPlayer.name,
+                            in: sub.inPlayer.name,
+                            reason: sub.reason
+                        }]);
+                    } else {
+                        setSubstitutionCount(prev => Math.max(0, prev - 1));
+                        setSubHistory(prev => prev.slice(0, -1)); // Remove last entry
+                    }
+                });
+
+                setCourtPositions(newPositions);
+                setRotationCount(prev => direction === 'forward' ? prev + 1 : Math.max(0, prev - 1));
+            };
+            
+// Export team data
+            const exportData = () => {
+                const data = {
+                    players,
+                    teamName,
+                    minThreshold,
+                    courtPositions,
+                    playMode,
+                    teamSlots,
+                    gameStats,
+                    exportDate: new Date().toISOString()
+                };
+                
+                const dataStr = JSON.stringify(data, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+                
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `volleyball_team_${teamName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+                
+                URL.revokeObjectURL(url);
+            };
+
+            // Import team data
+            const handleImportData = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        
+                        if (importedData.players) setPlayers(importedData.players);
+                        if (importedData.teamName) setTeamName(importedData.teamName);
+                        if (importedData.minThreshold) setMinThreshold(importedData.minThreshold);
+                        if (importedData.courtPositions) setCourtPositions(importedData.courtPositions);
+                        if (importedData.playMode) setPlayMode(importedData.playMode);
+                        if (importedData.teamSlots) setTeamSlots(importedData.teamSlots);
+                        if (importedData.gameStats) setGameStats(importedData.gameStats);
+                        
+                        alert('Team data imported successfully!');
+                    } catch (error) {
+                        alert('Error importing data. Please check the file format.');
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = '';
+            };
+
+            // Helper function to check star player rules for rotational mode
+            const checkStarRules = (positions) => {
+                const courtPlayers = [
+                    positions.backLeft,
+                    positions.frontLeft,
+                    positions.frontMiddle,
+                    positions.frontRight,
+                    positions.backRight,
+                    positions.backMiddle
+                ].filter(Boolean);
+
+                const starsOnCourt = courtPlayers.filter(p => p.star).length;
+                
+                if (starsOnCourt === 0) return false;
+
+                const starPositions = [];
+                if (positions.backLeft?.star) starPositions.push(1);
+                if (positions.frontLeft?.star) starPositions.push(2);
+                if (positions.frontMiddle?.star) starPositions.push(3);
+                if (positions.frontRight?.star) starPositions.push(4);
+                if (positions.backRight?.star) starPositions.push(5);
+                if (positions.backMiddle?.star) starPositions.push(6);
+
+                for (let i = 0; i < starPositions.length; i++) {
+                    for (let j = i + 1; j < starPositions.length; j++) {
+                        const pos1 = starPositions[i];
+                        const pos2 = starPositions[j];
+                        
+                        if (Math.abs(pos1 - pos2) === 1 || (pos1 === 1 && pos2 === 6) || (pos1 === 6 && pos2 === 1)) {
+                            return false;
+                        }
+                    }
+                }
+
+                return true;
+            };
+
+           // Calculate rotation strengths for rotational mode
+            const calculateRotationStrengths = (positions) => {
+                const rotations = [];
+                let currentPositions = { ...positions };
+                
+                for (let i = 0; i < 10; i++) {
+                    const frontRowTotal = (currentPositions.frontLeft?.defense || 0) + 
+                                         (currentPositions.frontMiddle?.defense || 0) + 
+                                         (currentPositions.frontRight?.defense || 0);
+                    const backRowTotal = (currentPositions.backLeft?.defense || 0) + 
+                                        (currentPositions.backMiddle?.defense || 0) + 
+                                        (currentPositions.backRight?.defense || 0);
+                    
+                    rotations.push({
+                        frontRowTotal,
+                        backRowTotal,
+                        serverRating: currentPositions.backLeft?.serving || 0,
+                        rotation: i
+                    });
+                    
+                    const newPositions = {
+                        backRight: currentPositions.backMiddle,
+                        frontRight: currentPositions.backRight,
+                        frontMiddle: currentPositions.frontRight,
+                        frontLeft: currentPositions.frontMiddle,
+                        backLeft: currentPositions.frontLeft,
+                        bench: [...currentPositions.bench]
+                    };
+                    
+                    const newBench = [...currentPositions.bench];
+                    if (newBench.length > 0) {
+                        newBench.push(currentPositions.backLeft);
+                        newPositions.backMiddle = newBench.shift();
+                    } else {
+                        newPositions.backMiddle = currentPositions.backLeft;
+                    }
+                    newPositions.bench = newBench;
+                    
+                    currentPositions = newPositions;
+                }
+                
+                return rotations;
+            };
+
+            // Serving Priority Optimization with Star Rules
+            const optimizeServingPriority = async () => {
+                if (playMode === 'substitutional') {
+                    optimizeSubstitutionalPlay();
+                    return;
+                }
+
+                setIsOptimizing(true);
+                
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                const activePlayers = players.filter(p => p.active);
+                const starPlayers = activePlayers.filter(p => p.star);
+                
+                if (activePlayers.length < 6) {
+                    setIsOptimizing(false);
+                    return;
+                }
+
+                if (starPlayers.length === 0) {
+                    alert("Please select at least 1 star player to use optimization.");
+                    setIsOptimizing(false);
+                    return;
+                }
+
+                let eligibleServers = starPlayers.filter(p => p.serving >= 3);
+                if (eligibleServers.length === 0) {
+                    eligibleServers = activePlayers.filter(p => p.serving >= 3);
+                }
+                if (eligibleServers.length === 0) {
+                    eligibleServers = [...starPlayers].sort((a, b) => b.serving - a.serving).slice(0, 1);
+                }
+                
+                const firstServer = eligibleServers.sort((a, b) => a.defense - b.defense)[0];
+                const remainingPlayers = activePlayers.filter(p => p.id !== firstServer.id);
+                const topServers = remainingPlayers.sort((a, b) => b.serving - a.serving).slice(0, 5);
+                const benchPlayers = remainingPlayers.filter(p => !topServers.some(ts => ts.id === p.id))
+                    .sort((a, b) => b.defense - a.defense);
+
+                let allLineups = [];
+
+                const generatePermutations = (arr, current = []) => {
+                    if (current.length === arr.length) {
+                        return [current];
+                    }
+                    const perms = [];
+                    for (let i = 0; i < arr.length; i++) {
+                        if (!current.includes(arr[i])) {
+                            const newCurrent = [...current, arr[i]];
+                            perms.push(...generatePermutations(arr, newCurrent));
+                        }
+                    }
+                    return perms;
+                };
+
+                const serverPermutations = generatePermutations(topServers);
+
+                for (const perm of serverPermutations) {
+                    const testPositions = {
+                        backLeft: firstServer,
+                        frontLeft: perm[0],
+                        frontMiddle: perm[1],
+                        frontRight: perm[2],
+                        backRight: perm[3],
+                        backMiddle: perm[4],
+                        bench: benchPlayers
+                    };
+
+                    if (!checkStarRules(testPositions)) continue;
+
+                    const rotations = calculateRotationStrengths(testPositions);
+                    
+                    let aboveThresholdCount = 0;
+                    let totalDefense = 0;
+                    let servingScore = 0;
+                    let starBonus = 0;
+
+                    rotations.forEach((rotation, index) => {
+                        if (rotation.frontRowTotal >= minThreshold && rotation.backRowTotal >= minThreshold) {
+                            aboveThresholdCount++;
+                        }
+                        totalDefense += rotation.frontRowTotal + rotation.backRowTotal;
+                        
+                        const rotationWeight = Math.max(1, 20 - (index * 2));
+                        servingScore += rotation.serverRating * rotationWeight;
+
+                        let currentPos = { ...testPositions };
+                        for (let r = 0; r < index; r++) {
+                            const newPos = {
+                                backRight: currentPos.backMiddle,
+                                frontRight: currentPos.backRight,
+                                frontMiddle: currentPos.frontRight,
+                                frontLeft: currentPos.frontMiddle,
+                                backLeft: currentPos.frontLeft,
+                                bench: [...currentPos.bench]
+                            };
+                            const newBench = [...currentPos.bench];
+                            if (newBench.length > 0) {
+                                newBench.push(currentPos.backLeft);
+                                newPos.backMiddle = newBench.shift();
+                            } else {
+                                newPos.backMiddle = currentPos.backLeft;
+                            }
+                            newPos.bench = newBench;
+                            currentPos = newPos;
+                        }
+
+                        const courtPlayers = [currentPos.backLeft, currentPos.frontLeft, currentPos.frontMiddle,
+                                            currentPos.frontRight, currentPos.backRight, currentPos.backMiddle];
+                        const starsOnCourt = courtPlayers.filter(p => p && p.star).length;
+                        if (starsOnCourt >= 2) starBonus += 3;
+                    });
+
+                    const avgDefense = totalDefense / rotations.length;
+                    const thresholdPercent = aboveThresholdCount / rotations.length;
+                    const score = (servingScore * 1.0) + (avgDefense * 2) + (thresholdPercent * 50) + starBonus;
+
+                    allLineups.push({
+                        positions: testPositions,
+                        score: score,
+                        thresholdPercent: thresholdPercent,
+                        avgDefense: avgDefense,
+                        servingScore: servingScore,
+                        starBonus: starBonus
+                    });
+                }
+
+                allLineups.sort((a, b) => b.score - a.score);
+                const topLineups = allLineups.slice(0, 10);
+                
+                setBestLineups(topLineups);
+                setCurrentLineupIndex(0);
+
+                if (topLineups.length > 0) {
+                    setCourtPositions(topLineups[0].positions);
+                }
+                
+                setIsOptimizing(false);
+            };
+           const optimizeStandardPlay = async () => {
+        setIsOptimizing(true);
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const activePlayers = players.filter(p => p.active);
+        const starPlayers = activePlayers.filter(p => p.star);
+        
+        if (activePlayers.length < 6) {
+            setIsOptimizing(false);
+            return;
+        }
+
+        if (starPlayers.length === 0) {
+            alert("Please select at least 1 star player to use optimization.");
+            setIsOptimizing(false);
+            return;
+        }
+
+        // Rank ALL active players by defense (with serving as tiebreaker)
+        const rankedPlayers = [...activePlayers].sort((a, b) => {
+            if (a.defense === b.defense) {
+                return b.serving - a.serving;
+            }
+            return b.defense - a.defense;
+        });
+
+        // Create alternating pattern for full rotation
+        // Pair: 1st with last, 2nd with 2nd-to-last, etc.
+        const totalPlayers = rankedPlayers.length;
+        const rotationOrder = [];
+        
+        // Build alternating pairs: high with low, with higher ranked ahead
+        for (let i = 0; i < Math.floor(totalPlayers / 2); i++) {
+            const highRanked = rankedPlayers[i];
+            const lowRanked = rankedPlayers[totalPlayers - 1 - i];
+            
+            // Higher ranked player goes first in rotation
+            rotationOrder.push(highRanked);
+            rotationOrder.push(lowRanked);
+        }
+        
+        // If odd number of players, add the middle player at the end
+        if (totalPlayers % 2 === 1) {
+            const middlePlayer = rankedPlayers[Math.floor(totalPlayers / 2)];
+            rotationOrder.push(middlePlayer);
+        }
+
+        // Starting positions: first 6 from rotation order
+        const startingPositions = {
+            backLeft: rotationOrder[0],       // Server position
+            frontLeft: rotationOrder[1],      
+            frontMiddle: rotationOrder[2],    
+            frontRight: rotationOrder[3],     
+            backRight: rotationOrder[4],      
+            backMiddle: rotationOrder[5],     
+            bench: rotationOrder.slice(6)     // Rest on bench
+        };
+        // Check star player rules
+        if (!checkStarRules(startingPositions)) {
+            // Try different starting rotations to find valid star arrangement
+            let validArrangement = null;
+            
+            for (let startOffset = 1; startOffset < Math.min(6, totalPlayers); startOffset++) {
+                const testPositions = {
+                    backLeft: rotationOrder[startOffset % totalPlayers],
+                    frontLeft: rotationOrder[(startOffset + 1) % totalPlayers],
+                    frontMiddle: rotationOrder[(startOffset + 2) % totalPlayers],
+                    frontRight: rotationOrder[(startOffset + 3) % totalPlayers],
+                    backRight: rotationOrder[(startOffset + 4) % totalPlayers],
+                    backMiddle: rotationOrder[(startOffset + 5) % totalPlayers],
+                    bench: [
+                        ...rotationOrder.slice(0, startOffset),
+                        ...rotationOrder.slice(startOffset + 6)
+                    ]
+                };
+                
+                if (checkStarRules(testPositions)) {
+                    validArrangement = testPositions;
+                    break;
+                }
+            }
+
+            if (validArrangement) {
+                setCourtPositions(validArrangement);
+            } else {
+                alert("Cannot find valid rotation that follows star player rules. Try adjusting star player positions.");
+                setIsOptimizing(false);
+                return;
+            }
+        } else {
+            setCourtPositions(startingPositions);
+        }
+
+        // Verify rotation quality - check all possible 6-player combinations
+        const finalLineup = startingPositions;
+        const rotations = calculateRotationStrengths(finalLineup);
+        
+        let aboveThresholdCount = 0;
+        let totalDefense = 0;
+        let starBonus = 0;
+
+        rotations.forEach((rotation, index) => {
+            if (rotation.frontRowTotal >= minThreshold && rotation.backRowTotal >= minThreshold) {
+                aboveThresholdCount++;
+            }
+            totalDefense += rotation.frontRowTotal + rotation.backRowTotal;
+
+            // Star bonus calculation for current rotation
+            let currentPos = { ...finalLineup };
+            for (let r = 0; r < index; r++) {
+                const newPos = {
+                    backRight: currentPos.backMiddle,
+                    frontRight: currentPos.backRight,
+                    frontMiddle: currentPos.frontRight,
+                    frontLeft: currentPos.frontMiddle,
+                    backLeft: currentPos.frontLeft,
+                    backMiddle: currentPos.backLeft,
+                    bench: [...currentPos.bench]
+                };
+                
+                // Handle bench rotation
+                const newBench = [...currentPos.bench];
+                if (newBench.length > 0) {
+                    newBench.push(currentPos.backLeft);
+                    newPos.backMiddle = newBench.shift();
+                } else {
+                    newPos.backMiddle = currentPos.backLeft;
+                }
+                newPos.bench = newBench;
+                currentPos = newPos;
+            }
+
+            const courtPlayers = [currentPos.backLeft, currentPos.frontLeft, currentPos.frontMiddle,
+                                currentPos.frontRight, currentPos.backRight, currentPos.backMiddle];
+            const starsOnCourt = courtPlayers.filter(p => p && p.star).length;
+            if (starsOnCourt >= 2) starBonus += 3;
+        });
+
+        const avgDefense = totalDefense / rotations.length;
+        const thresholdPercent = aboveThresholdCount / rotations.length;
+        const score = (avgDefense * 2) + (thresholdPercent * 50) + starBonus;
+
+        const optimizedLineup = {
+            positions: finalLineup,
+            score: score,
+            thresholdPercent: thresholdPercent,
+            avgDefense: avgDefense,
+            servingScore: 0,
+            starBonus: starBonus
+        };
+
+        setBestLineups([optimizedLineup]);
+        setCurrentLineupIndex(0);
+        
+        setIsOptimizing(false);
+    };
+
+            const shuffleStandardPlay = () => {
+                if (bestLineups.length === 0) return;
+                
+                const nextIndex = (currentLineupIndex + 1) % bestLineups.length;
+                setCurrentLineupIndex(nextIndex);
+                setCourtPositions(bestLineups[nextIndex].positions);
+            };
+
+            const autoArrangePlayers = () => {
+                const activePlayers = players.filter(p => p.active);
+                if (activePlayers.length < 6) return;
+
+                const newPositions = {
+                    backLeft: activePlayers.find(p => p.name === '1') || activePlayers[0],
+                    frontLeft: activePlayers.find(p => p.name === '2') || activePlayers[1],
+                    frontMiddle: activePlayers.find(p => p.name === '3') || activePlayers[2],
+                    frontRight: activePlayers.find(p => p.name === '4') || activePlayers[3],
+                    backRight: activePlayers.find(p => p.name === '5') || activePlayers[4],
+                    backMiddle: activePlayers.find(p => p.name === '6') || activePlayers[5],
+                    bench: activePlayers.slice(6)
+                };
+                setCourtPositions(newPositions);
+                
+                // Reset substitution tracking
+                if (playMode === 'substitutional') {
+                    setSubstitutionCount(0);
+                    setSubHistory([]);
+                    setRotationCount(0);
+                }
+            };
+
+            const rotateForward = () => {
+                if (playMode === 'substitutional') {
+                    rotateWithSubstitutions('forward');
+                    return;
+                }
+
+                const courtPlayers = [
+                    courtPositions.backLeft,
+                    courtPositions.backMiddle,
+                    courtPositions.backRight,
+                    courtPositions.frontLeft,
+                    courtPositions.frontMiddle,
+                    courtPositions.frontRight
+                ].filter(Boolean);
+                
+                if (courtPlayers.length < 6) return;
+
+                const newPositions = {
+                    backRight: courtPositions.backMiddle,
+                    frontRight: courtPositions.backRight,
+                    frontMiddle: courtPositions.frontRight,
+                    frontLeft: courtPositions.frontMiddle,
+                    backLeft: courtPositions.frontLeft,
+                    bench: [...courtPositions.bench]
+                };
+
+                const newBench = [...courtPositions.bench];
+                newBench.push(courtPositions.backLeft);
+                
+                if (newBench.length > 0) {
+                    newPositions.backMiddle = newBench.shift();
+                }
+                
+                newPositions.bench = newBench;
+                setCourtPositions(newPositions);
+            };
+
+            const rotateBackward = () => {
+                if (playMode === 'substitutional') {
+                    rotateWithSubstitutions('backward');
+                    return;
+                }
+
+                const courtPlayers = [
+                    courtPositions.backLeft,
+                    courtPositions.backMiddle,
+                    courtPositions.backRight,
+                    courtPositions.frontLeft,
+                    courtPositions.frontMiddle,
+                    courtPositions.frontRight
+                ].filter(Boolean);
+                
+                if (courtPlayers.length < 6) return;
+
+                const newPositions = {
+                    frontLeft: courtPositions.backLeft,
+                    frontMiddle: courtPositions.frontLeft,
+                    frontRight: courtPositions.frontMiddle,
+                    backRight: courtPositions.frontRight,
+                    backMiddle: courtPositions.backRight,
+                    bench: [...courtPositions.bench]
+                };
+
+                const newBench = [...courtPositions.bench];
+                newBench.unshift(courtPositions.backMiddle);
+                
+                if (newBench.length > 0) {
+                    newPositions.backLeft = newBench.pop();
+                }
+                
+                newPositions.bench = newBench;
+                setCourtPositions(newPositions);
+            };
+           // Drag and Drop handlers
+            const handleDragStart = (e, player) => {
+                if (gameMode) {
+                    e.preventDefault();
+                    return;
+                }
+                setDraggedPlayer(player);
+                e.dataTransfer.effectAllowed = 'move';
+            };
+
+            const handleDragOver = (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            };
+
+            const handleDragEnter = (e, zone) => {
+                e.preventDefault();
+                setDropZone(zone);
+            };
+
+            const handleDragLeave = (e) => {
+                e.preventDefault();
+                setDropZone(null);
+            };
+
+            const handleDrop = (e, targetPosition) => {
+                e.preventDefault();
+                if (!draggedPlayer || gameMode) return;
+
+                const newPositions = { ...courtPositions };
+                
+                let currentPosition = null;
+                Object.keys(newPositions).forEach(pos => {
+                    if (pos === 'bench') {
+                        const benchIndex = newPositions[pos].findIndex(p => p.id === draggedPlayer.id);
+                        if (benchIndex >= 0) {
+                            currentPosition = { type: 'bench', index: benchIndex };
+                        }
+                    } else if (newPositions[pos] && newPositions[pos].id === draggedPlayer.id) {
+                        currentPosition = { type: 'court', position: pos };
+                    }
+                });
+
+                if (currentPosition) {
+                    if (currentPosition.type === 'bench') {
+                        newPositions.bench.splice(currentPosition.index, 1);
+                    } else {
+                        newPositions[currentPosition.position] = null;
+                    }
+                }
+
+                if (targetPosition === 'bench') {
+                    newPositions.bench.push(draggedPlayer);
+                } else if (targetPosition.startsWith('bench-')) {
+                    const index = parseInt(targetPosition.split('-')[1]);
+                    newPositions.bench.splice(index, 0, draggedPlayer);
+                } else {
+                    if (newPositions[targetPosition]) {
+                        if (currentPosition && currentPosition.type === 'court') {
+                            newPositions[currentPosition.position] = newPositions[targetPosition];
+                        } else if (currentPosition && currentPosition.type === 'bench') {
+                            newPositions.bench.splice(currentPosition.index, 0, newPositions[targetPosition]);
+                        }
+                    }
+                    newPositions[targetPosition] = draggedPlayer;
+                }
+
+                setCourtPositions(newPositions);
+                setDraggedPlayer(null);
+                setDropZone(null);
+            };
+          // Calculate current strengths based on play mode
+            const calculateCurrentStrengths = () => {
+                if (playMode === 'rotational') {
+                    return calculateRotationStrengths(courtPositions).slice(0, 6);
+                } else {
+                    // For substitutional mode, just calculate current position strengths without rotation simulation
+                    const backRowSR = (courtPositions.backLeft?.serveReceive || 0) + 
+                                     (courtPositions.backMiddle?.serveReceive || 0) + 
+                                     (courtPositions.backRight?.serveReceive || 0);
+                    
+                    const frontRowSetting = (courtPositions.frontLeft?.setting || 0) + 
+                                           (courtPositions.frontMiddle?.setting || 0) + 
+                                           (courtPositions.frontRight?.setting || 0);
+                    
+                    return [{
+                        backRowSR,
+                        frontRowSetting,
+                        serverRating: courtPositions.backLeft?.serving || 0,
+                        rotation: 0
+                    }];
+                }
+            };
+
+            const currentStrengths = calculateCurrentStrengths();
+
+            // Game Mode Stat Tile Component
+            const GameStatTile = ({ player, position, isOnCourt, benchIndex }) => {
+                const subColorClass = player.subColor !== null ? SUB_COLORS[player.subColor] : '';
+                const isNoSub = (playMode === 'substitutional' && player.star) || player.isFullTime;
+                const isServer = position === 'backLeft';
+                const isBench = !isOnCourt;
+                const currentGame = getCurrentGameStats();
+                const isGameLocked = currentGame?.locked || false;
+
+                const defenseSuccess = getPlayerGameStat(player.id, 'defense', 'success');
+                const defenseMiss = getPlayerGameStat(player.id, 'defense', 'miss');
+                const servingSuccess = getPlayerGameStat(player.id, 'serving', 'success');
+                const servingMiss = getPlayerGameStat(player.id, 'serving', 'miss');
+
+                const handleStatClick = (category, type, e) => {
+                    if (isGameLocked) return;
+                    e.stopPropagation();
+                    updatePlayerGameStat(player.id, category, type);
+                    triggerStatAnimation(player.id, position, type);
+                };
+
+                return React.createElement('div', {
+                    className: `game-mode-tile p-2 rounded-lg shadow-md transition-all relative ${
+                        isNoSub ? 'no-sub-player' : subColorClass
+                    } ${isGameLocked ? 'game-locked' : ''}`,
+                    'data-player-id': player.id
+                },
+                    // Player name
+                    React.createElement('div', { className: "text-center font-bold text-sm mb-2" }, player.name),
+                    
+                    // Defense stats (always visible)
+                    React.createElement('div', { className: "flex items-center justify-center mb-2" },
+                        // Defense miss bubble (left)
+                        React.createElement('div', { className: "relative" },
+                            React.createElement('div', {
+                                className: "stat-bubble minus-bubble",
+                                onClick: (e) => handleStatClick('defense', 'miss', e),
+                                style: { opacity: isGameLocked ? 0.5 : 1, cursor: isGameLocked ? 'not-allowed' : 'pointer' }
+                            }, "✗"),
+                            defenseMiss > 0 && React.createElement('div', {
+                                className: "stat-counter",
+                                style: { top: '-8px', right: '-8px' }
+                            }, defenseMiss)
+                        ),
+                        
+                        // Defense label
+                        React.createElement('div', { className: "mx-2 text-xs font-medium" }, "D"),
+                        
+                        // Defense success bubble (right)
+                        React.createElement('div', { className: "relative" },
+                            React.createElement('div', {
+                                className: "stat-bubble plus-bubble",
+                                onClick: (e) => handleStatClick('defense', 'success', e),
+                                style: { opacity: isGameLocked ? 0.5 : 1, cursor: isGameLocked ? 'not-allowed' : 'pointer' }
+                            }, "+"),
+                            defenseSuccess > 0 && React.createElement('div', {
+                                className: "stat-counter",
+                                style: { top: '-8px', left: '-8px' }
+                            }, defenseSuccess)
+                        )
+                    ),
+                    
+                    // Serving stats (visible for server position or bench players)
+                    (isServer || isBench) && React.createElement('div', { className: "flex items-center justify-center" },
+                        // Serving miss bubble (left)
+                        React.createElement('div', { className: "relative" },
+                            React.createElement('div', {
+                                className: "stat-bubble minus-bubble",
+                                onClick: (e) => handleStatClick('serving', 'miss', e),
+                                style: { opacity: isGameLocked ? 0.5 : 1, cursor: isGameLocked ? 'not-allowed' : 'pointer' }
+                            }, "✗"),
+                            servingMiss > 0 && React.createElement('div', {
+                                className: "stat-counter",
+                                style: { top: '-8px', right: '-8px' }
+                            }, servingMiss)
+                        ),
+                        
+                        // Serving label
+                        React.createElement('div', { className: "mx-2 text-xs font-medium" }, "S"),
+                        
+                        // Serving success bubble (right)
+                        React.createElement('div', { className: "relative" },
+                            React.createElement('div', {
+                                className: "stat-bubble plus-bubble",
+                                onClick: (e) => handleStatClick('serving', 'success', e),
+                                style: { opacity: isGameLocked ? 0.5 : 1, cursor: isGameLocked ? 'not-allowed' : 'pointer' }
+                            }, "+"),
+                            servingSuccess > 0 && React.createElement('div', {
+                                className: "stat-counter",
+                                style: { top: '-8px', left: '-8px' }
+                            }, servingSuccess)
+                        )
+                    ),
+                    
+                    // Position label
+                    position && React.createElement('div', { className: "text-xs text-gray-600 mt-1 text-center" }, position)
+                );
+            };
+
+            // Regular Player Tile Component (non-game mode)
+            const PlayerTile = ({ player, position, isOnCourt, benchIndex }) => {
+                const subColorClass = player.subColor !== null ? SUB_COLORS[player.subColor] : '';
+                const isNoSub = (playMode === 'substitutional' && player.star) || player.isFullTime;
+                
+                return React.createElement('div', {
+                    className: `p-3 rounded-lg shadow-md cursor-pointer transition-all ${
+                        player.active 
+                            ? (isOnCourt ? 'bg-blue-100 border-2 border-blue-500' : 'bg-green-100 border-2 border-green-400')
+                            : 'bg-gray-200 border-2 border-gray-300'
+                    } ${isNoSub ? 'no-sub-player' : subColorClass} ${
+                        playMode === 'rotational' && player.star && !isNoSub ? 'star-player' : ''
+                    } ${draggedPlayer && draggedPlayer.id === player.id ? 'dragging' : ''}`,
+                    draggable: !gameMode,
+                    onDragStart: (e) => handleDragStart(e, player),
+                    onClick: () => handleEditPlayer(player)
+                },
+                    React.createElement('div', { className: "flex items-center justify-between" },
+                        React.createElement('div', { className: "font-semibold text-sm" }, player.name),
+                        React.createElement('div', { className: "flex gap-1" },
+                            (playMode === 'rotational' && player.star && !gameMode) && React.createElement('span', { className: "text-yellow-500 text-xs" }, '⭐'),
+                            (playMode === 'substitutional' && (player.star || player.isFullTime)) && React.createElement('span', { className: "text-yellow-500 text-xs" }, '⭐'),
+                            (playMode === 'substitutional' && player.subPair) && React.createElement('span', { className: "text-blue-500 text-xs" }, '🔗')
+                        )
+                    ),
+                    position && React.createElement('div', { className: "text-xs text-gray-600 mt-1" }, position)
+                );
+            };
+
+            const DropZone = ({ position, currentPlayer, label }) => (
+                React.createElement('div', {
+                    className: `h-16 border-2 border-dashed rounded-lg flex items-center justify-center transition-all ${
+                        dropZone === position ? 'drop-zone-active' : 'border-gray-300'
+                    }`,
+                    onDragOver: handleDragOver,
+                    onDragEnter: (e) => handleDragEnter(e, position),
+                    onDragLeave: handleDragLeave,
+                    onDrop: (e) => handleDrop(e, position)
+                },
+                    currentPlayer ? 
+                        (gameMode ? 
+                            React.createElement(GameStatTile, { player: currentPlayer, position: label, isOnCourt: true }) :
+                            React.createElement(PlayerTile, { player: currentPlayer, position: label, isOnCourt: true })
+                        ) :
+                        React.createElement('span', { className: "text-xs text-gray-400" }, "Empty")
+                )
+            );
+        const CourtDisplay = () => {
+                const currentGame = getCurrentGameStats();
+                const isGameLocked = currentGame?.locked || false;
+                
+                return React.createElement('div', { className: "bg-orange-50 border-2 border-orange-300 rounded-lg p-4 mb-6" },
+                    React.createElement('div', { className: "text-center text-sm font-semibold mb-4 text-orange-800" },
+                        `${teamName} - Court Layout (${playMode.charAt(0).toUpperCase() + playMode.slice(1)} Mode)${gameMode ? ' - GAME MODE' : ''}`
+                    ),
+                    
+                    // Game mode indicator and lock status
+                    gameMode && React.createElement('div', { className: "mb-4 p-2 bg-blue-100 rounded-lg text-center" },
+                        React.createElement('div', { className: "text-sm font-medium text-blue-800 mb-1" },
+                            currentGame ? `Game ${currentGame.id} - ${currentGame.date}` : 'No Active Game'
+                        ),
+                        isGameLocked && React.createElement('div', { className: "text-xs text-yellow-700 font-medium" },
+                            "🔒 Game Locked - Double tap to unlock"
+                        )
+                    ),
+                    
+                    // Substitution Counter for substitutional mode
+                    playMode === 'substitutional' && !gameMode && (
+                        React.createElement('div', { className: "mb-4 p-2 substitution-counter text-center text-sm" },
+                            `Substitutions: ${substitutionCount} | Rotations: ${rotationCount}`
+                        )
+                    ),
+                    
+                    // Current rotation strengths (only in non-game mode)
+                    !gameMode && currentStrengths.length > 0 && (
+                        React.createElement('div', { className: "mb-4 p-3 bg-white rounded-lg border" },
+                            React.createElement('div', { className: "text-xs font-semibold mb-2 text-center" }, 
+                                playMode === 'rotational' 
+                                    ? `Row Totals (Defense) - Min: ${minThreshold}`
+                                    : "Row Totals (SR: Serve Receive, Set: Setting)"
+                            ),
+                            React.createElement('div', { className: "flex justify-between text-xs mb-2" },
+                                playMode === 'rotational' ? (
+                                    React.createElement(React.Fragment, {},
+                                        React.createElement('div', {}, 
+                                            `Front: ${currentStrengths[0]?.frontRowTotal || 0}`,
+                                            React.createElement('span', { 
+                                                className: `ml-1 ${(currentStrengths[0]?.frontRowTotal || 0) >= minThreshold ? 'text-green-600' : 'text-red-600'}`
+                                            }, (currentStrengths[0]?.frontRowTotal || 0) >= minThreshold ? '✓' : '✗')
+                                        ),
+                                        React.createElement('div', {}, 
+                                            `Back: ${currentStrengths[0]?.backRowTotal || 0}`,
+                                            React.createElement('span', { 
+                                                className: `ml-1 ${(currentStrengths[0]?.backRowTotal || 0) >= minThreshold ? 'text-green-600' : 'text-red-600'}`
+                                            }, (currentStrengths[0]?.backRowTotal || 0) >= minThreshold ? '✓' : '✗')
+                                        )
+                                    )
+                                ) : (
+                                    React.createElement(React.Fragment, {},
+                                        React.createElement('div', {}, `Back SR: ${currentStrengths[0]?.backRowSR || 0}`),
+                                        React.createElement('div', {}, `Front Set: ${currentStrengths[0]?.frontRowSetting || 0}`)
+                                    )
+                                )
+                            ),
+                            bestLineups.length > 0 && (
+                                React.createElement('div', { className: "text-xs text-center text-gray-600" },
+                                    `Lineup ${currentLineupIndex + 1} of ${bestLineups.length} best options`
+                                )
+                            )
+                        )
+                    ),
+
+                    // Back Row (20 ft line)
+                    React.createElement('div', { className: "border-b-2 border-dashed border-orange-400 pb-3 mb-3" },
+                        React.createElement('div', { className: "text-xs text-center mb-2 text-orange-700" }, "Back Row (20 ft)"),
+                        React.createElement('div', { className: "grid grid-cols-3 gap-2" },
+                            React.createElement('div', { className: "text-center" },
+                                React.createElement('div', { className: "text-xs mb-1" }, "Left (Serve)"),
+                                React.createElement(DropZone, { 
+                                    position: "backLeft", 
+                                    currentPlayer: courtPositions.backLeft, 
+                                    label: "BL" 
+                                })
+                            ),
+                            React.createElement('div', { className: "text-center" },
+                                React.createElement('div', { className: "text-xs mb-1" }, "Middle"),
+                                React.createElement(DropZone, { 
+                                    position: "backMiddle", 
+                                    currentPlayer: courtPositions.backMiddle, 
+                                    label: "BM" 
+                                })
+                            ),
+                            React.createElement('div', { className: "text-center" },
+                                React.createElement('div', { className: "text-xs mb-1" }, "Right"),
+                                React.createElement(DropZone, { 
+                                    position: "backRight", 
+                                    currentPlayer: courtPositions.backRight, 
+                                    label: "BR" 
+                                })
+                            )
+                        )
+                    ),
+
+                   // Front Row (10 ft line)
+                    React.createElement('div', { className: "border-b-2 border-dashed border-orange-400 pb-3 mb-3" },
+                        React.createElement('div', { className: "text-xs text-center mb-2 text-orange-700" }, "Front Row (10 ft)"),
+                        React.createElement('div', { className: "grid grid-cols-3 gap-2" },
+                            React.createElement('div', { className: "text-center" },
+                                React.createElement('div', { className: "text-xs mb-1" }, "Left"),
+                                React.createElement(DropZone, { 
+                                    position: "frontLeft", 
+                                    currentPlayer: courtPositions.frontLeft, 
+                                    label: "FL" 
+                                })
+                            ),
+                            React.createElement('div', { className: "text-center" },
+                                React.createElement('div', { className: "text-xs mb-1" }, "Middle"),
+                                React.createElement(DropZone, { 
+                                    position: "frontMiddle", 
+                                    currentPlayer: courtPositions.frontMiddle, 
+                                    label: "FM" 
+                                })
+                            ),
+                            React.createElement('div', { className: "text-center" },
+                                React.createElement('div', { className: "text-xs mb-1" }, "Right"),
+                                React.createElement(DropZone, { 
+                                    position: "frontRight", 
+                                    currentPlayer: courtPositions.frontRight, 
+                                    label: "FR" 
+                                })
+                            )
+                        )
+                    ),
+
+                    // Net
+                    React.createElement('div', { className: "w-full h-2 bg-black mb-4 rounded" }),
+
+                    // Rotation Controls
+                    React.createElement('div', { className: "flex justify-center gap-4 mb-4" },
+                        React.createElement('button', {
+                            onClick: rotateBackward,
+                            className: "flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed",
+                            disabled: [courtPositions.backLeft, courtPositions.backMiddle, courtPositions.backRight, courtPositions.frontLeft, courtPositions.frontMiddle, courtPositions.frontRight].filter(Boolean).length < 6
+                        },
+                            "⟲ Previous"
+                        ),
+                        React.createElement('button', {
+                            onClick: rotateForward,
+                            className: "flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed",
+                            disabled: [courtPositions.backLeft, courtPositions.backMiddle, courtPositions.backRight, courtPositions.frontLeft, courtPositions.frontMiddle, courtPositions.frontRight].filter(Boolean).length < 6
+                        },
+                            "Next ⟳"
+                        )
+                    ),
+
+                    // Game Mode Lock/Unlock Controls
+                    gameMode && currentGame && React.createElement('div', { className: "flex justify-center gap-2 mt-4" },
+                        isGameLocked ? (
+                            React.createElement('button', {
+                                onClick: unlockCurrentGame,
+                                className: "px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm",
+                                onDoubleClick: unlockCurrentGame
+                            }, "🔓 Double-tap to Unlock")
+                        ) : (
+                            React.createElement('button', {
+                                onClick: lockCurrentGame,
+                                className: "px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+                            }, "🔒 Lock Game")
+                        )
+                    )
+                );
+            };
+
+            const BenchDisplay = () => (
+                React.createElement('div', { 
+                    className: "bg-green-50 border-2 border-green-300 rounded-lg p-4 mb-6",
+                    onDragOver: !gameMode ? handleDragOver : undefined,
+                    onDragEnter: !gameMode ? (e) => handleDragEnter(e, 'bench') : undefined,
+                    onDragLeave: !gameMode ? handleDragLeave : undefined,
+                    onDrop: !gameMode ? (e) => handleDrop(e, 'bench') : undefined
+                },
+                    React.createElement('div', { className: "text-center text-sm font-semibold mb-3 text-green-800" },
+                        gameMode ? "Bench Players (Tap stat bubbles to track)" :
+                        playMode === 'substitutional' 
+                            ? "Bench Players (Available for substitution)"
+                            : "Bench Players (Next to rotate in at bottom)"
+                    ),
+                    React.createElement('div', { className: "space-y-2" },
+                        courtPositions.bench.map((player, index) => (
+                            React.createElement('div', { key: player.id, className: "flex items-center gap-2" },
+                                !gameMode && React.createElement('span', { className: "text-xs w-6 text-center" }, 
+                                    playMode === 'rotational' ? courtPositions.bench.length - index : index + 1
+                                ),
+                                gameMode ? 
+                                    React.createElement(GameStatTile, { player: player, isOnCourt: false, benchIndex: index }) :
+                                    React.createElement(PlayerTile, { player: player, isOnCourt: false, benchIndex: index })
+                            )
+                        )),
+                        courtPositions.bench.length === 0 && (
+                            React.createElement('div', { className: "text-center text-gray-500 text-sm" }, "No bench players")
+                        )
+                    ),
+
+                    // Team Totals (Game Mode Only)
+                    gameMode && React.createElement('div', { className: "mt-4 p-3 bg-white rounded-lg border" },
+                        React.createElement('div', { className: "text-sm font-semibold mb-2 text-center" }, "Team Totals"),
+                        React.createElement('div', { className: "grid grid-cols-2 gap-4 text-xs" },
+                            React.createElement('div', { className: "text-center" },
+                                React.createElement('div', { className: "font-medium" }, "Defense"),
+                                React.createElement('div', { className: "text-green-600" }, `✓ ${getTeamTotals('defense', 'success')}`),
+                                React.createElement('div', { className: "text-red-600" }, `✗ ${getTeamTotals('defense', 'miss')}`)
+                            ),
+                            React.createElement('div', { className: "text-center" },
+                                React.createElement('div', { className: "font-medium" }, "Serving"),
+                                React.createElement('div', { className: "text-green-600" }, `✓ ${getTeamTotals('serving', 'success')}`),
+                                React.createElement('div', { className: "text-red-600" }, `✗ ${getTeamTotals('serving', 'miss')}`)
+                            )
+                        )
+                    )
+                )
+            );
+            
