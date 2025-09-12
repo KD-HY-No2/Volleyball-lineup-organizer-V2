@@ -621,26 +621,32 @@ const optimizeCourtPositions = (courtPlayers, unpairedPlayers) => {
 
 // Helper function to check unpaired player positioning
 const checkUnpairedPositioning = (positions, unpairedPlayers) => {
-    if (unpairedPlayers.length < 2) return true;
+    if (unpairedPlayers.length !== 2) return true; // Only enforce for exactly 2 unpaired
 
     const positionArray = [
-        positions.backLeft, positions.frontLeft, positions.frontMiddle,
-        positions.frontRight, positions.backRight, positions.backMiddle
+        positions.backLeft,    // position 0
+        positions.frontLeft,   // position 1  
+        positions.frontMiddle, // position 2
+        positions.frontRight,  // position 3
+        positions.backRight,   // position 4
+        positions.backMiddle   // position 5
     ];
 
     const unpairedPositions = [];
     positionArray.forEach((player, index) => {
-        if (unpairedPlayers.some(up => up.id === player.id)) {
+        if (player && unpairedPlayers.some(up => up.id === player.id)) {
             unpairedPositions.push(index);
         }
     });
 
-    // Check if unpaired players are exactly 2 rotation positions apart
     if (unpairedPositions.length === 2) {
         const pos1 = unpairedPositions[0];
         const pos2 = unpairedPositions[1];
+        
+        // Check if they are in opposite rows (3 positions apart)
+        // Valid pairs: (0,3), (1,4), (2,5) - exactly 3 positions apart
         const diff = Math.abs(pos1 - pos2);
-        return diff === 2 || diff === 4; // Exactly 2 positions apart (accounting for circular arrangement)
+        return diff === 3;
     }
 
     return true;
@@ -829,9 +835,12 @@ if (numPairs > 0 && pairablePlayers.length >= 2) {
                 processedPairs.add(player.id);
                 processedPairs.add(partner.id);
 
-                // For starting lineup, prefer better overall player
-                const starterPlayer = player.allAround >= partner.allAround ? player : partner;
-                const benchPlayer = starterPlayer === player ? partner : player;
+                // For starting lineup, choose based on position flexibility
+// Prefer player who can handle both front and back row better
+const player1FlexScore = (player.serveReceive + player.setting) / 2;
+const player2FlexScore = (partner.serveReceive + partner.setting) / 2;
+const starterPlayer = player1FlexScore >= player2FlexScore ? player : partner;
+const benchPlayer = starterPlayer === player ? partner : player;
                 
                 if (courtPlayers.length < 6) {
                     courtPlayers.push(starterPlayer);
