@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volleyball Lineup Optimizer</title>
+    <meta name="description" content="Professional volleyball lineup optimization with rotational and substitutional play modes">
+    <meta name="theme-color" content="#8b5cf6">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- iOS specific -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Volleyball Optimizer">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+        
+        @media (max-width: 768px) {
+            html, body {
+                height: 100%;
+                overflow-x: hidden;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 3px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+
+        .dragging {
+            opacity: 0.5;
+            transform: scale(0.95);
+        }
+
+        .drop-zone-active {
+            background-color: rgba(59, 130, 246, 0.1) !important;
+            border: 2px dashed #3b82f6 !important;
+        }
+
+        .optimizing {
+            background: linear-gradient(45deg, #8b5cf6, #a855f7);
+            animation: pulse 2s infinite;
+        }
+
+        .star-player {
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            border-color: #ffd700 !important;
+        }
+
+        .no-sub-player {
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.8);
+            background: linear-gradient(135deg, #ffd700, #ffed4e) !important;
+            border: 3px solid #ffd700 !important;
+        }
+
+        .sub-color-1 { background-color: #fef3c7 !important; border: 3px solid #f59e0b !important; }
+        .sub-color-2 { background-color: #dcfce7 !important; border: 3px solid #22c55e !important; }
+        .sub-color-3 { background-color: #dbeafe !important; border: 3px solid #3b82f6 !important; }
+        .sub-color-4 { background-color: #f3e8ff !important; border: 3px solid #8b5cf6 !important; }
+        .sub-color-5 { background-color: #fce7f3 !important; border: 3px solid #ec4899 !important; }
+        .sub-color-6 { background-color: #fef2f2 !important; border: 3px solid #ef4444 !important; }
+
+        .install-prompt {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .substitution-counter {
+            background: linear-gradient(45deg, #06b6d4, #0891b2);
+            color: white;
+            font-weight: bold;
+            border-radius: 8px;
+            padding: 8px 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .game-mode-tile {
+            background: #f8fafc !important;
+            border: 2px solid #e2e8f0 !important;
+            position: relative;
+            min-height: 80px;
+        }
+
+        .stat-bubble {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            user-select: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: all 0.2s ease;
+        }
+
+        .stat-bubble:active {
+            transform: scale(0.95);
+        }
+
+        .stat-bubble.plus-bubble {
+            background: #10b981;
+            border: 2px solid #059669;
+        }
+
+        .stat-bubble.minus-bubble {
+            background: #ef4444;
+            border: 2px solid #dc2626;
+        }
+
+        .stat-counter {
+            position: absolute;
+            background: #6b7280;
+            color: white;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 10px;
+            font-weight: bold;
+            min-width: 20px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .stat-animation {
+            position: absolute;
+            pointer-events: none;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 1000;
+        }
+
+        .stat-animation.plus-anim {
+            color: #10b981;
+            animation: floatUp 0.8s ease-out forwards;
+        }
+
+        .stat-animation.minus-anim {
+            color: #ef4444;
+            animation: floatDown 0.8s ease-out forwards;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-30px); opacity: 0; }
+        }
+
+        @keyframes floatDown {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(30px); opacity: 0; }
+        }
+
+        .cursor-move {
+            cursor: move;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        .cursor-move:active {
+            opacity: 0.7;
+            transform: scale(0.95);
+        }
+
+        @media (hover: none) and (pointer: coarse) {
+            .cursor-move {
+                -webkit-touch-callout: none;
+                -webkit-tap-highlight-color: transparent;
+            }
+        }
+
+        .game-locked {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
+            border: 2px solid #d97706 !important;
+        }
+
+        .cumulative-stats {
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 11px;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const VolleyballApp = () => {
+            // PWA Install State
+            const [deferredPrompt, setDeferredPrompt] = useState(null);
+            const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+
+            // Game Mode State
+            const [gameMode, setGameMode] = useState(false);
+            const [gameStats, setGameStats] = useState(() => {
+                const saved = localStorage.getItem('volleyball_gameStats');
+                return saved ? JSON.parse(saved) : {};
+            });
+
+            // Fixed multi-team management with proper slot rotation
+            const [teamSlots, setTeamSlots] = useState(() => {
+                const saved = localStorage.getItem('volleyball_teamSlots');
+                return saved ? JSON.parse(saved) : {
+                    active: 'team1',
+                    team1: { name: 'Team 1', hasData: false },
+                    team2: { name: 'Team 2', hasData: false },
+                    team3: { name: 'Team 3', hasData: false }
+                };
+            });
+
+            // Play Mode State
+            const [playMode, setPlayMode] = useState(() => 
+                localStorage.getItem(`volleyball_playMode_${teamSlots.active}`) || 'rotational'
+            );
+
+            // Load data from localStorage with proper team slot support
+            const loadFromStorage = (key, defaultValue) => {
+                try {
+                    const saved = localStorage.getItem(`${key}_${teamSlots.active}`);
+                    return saved ? JSON.parse(saved) : defaultValue;
+                } catch (error) {
+                    console.warn(`Error loading ${key} from storage:`, error);
+                    return defaultValue;
+                }
+            };
+
+            // Save data to localStorage with proper team slot support
+            const saveToStorage = (key, data) => {
+                try {
+                    localStorage.setItem(`${key}_${teamSlots.active}`, JSON.stringify(data));
+                    // Mark team as having data
+                    setTeamSlots(prev => {
+                        const updated = {
+                            ...prev,
+                            [prev.active]: { ...prev[prev.active], hasData: true }
+                        };
+                        localStorage.setItem('volleyball_teamSlots', JSON.stringify(updated));
+                        return updated;
+                    });
+                } catch (error) {
+                    console.warn(`Error saving ${key} to storage:`, error);
+                }
+            };
+          // Enhanced player data structure
+            const [optimizationStrategy, setOptimizationStrategy] = useState(0);
+            const [players, setPlayers] = useState(() => {
+                const saved = localStorage.getItem(`volleyball_players_${teamSlots.active}`);
+                if (saved) {
+                    const parsedPlayers = JSON.parse(saved);
+                    return parsedPlayers.map(p => ({
+                        ...p,
+                        serveReceive: p.serveReceive || 3,
+                        setting: p.setting || 3,
+                        allAround: p.allAround || 3,
+                        subPair: p.subPair || null,
+                        subColor: p.subColor || null,
+                        isFullTime: p.isFullTime || false
+                    }));
+                }
+                return [
+                    { id: 1, name: '1', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                    { id: 2, name: '2', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                    { id: 3, name: '3', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                    { id: 4, name: '4', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                    { id: 5, name: '5', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                    { id: 6, name: '6', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                    { id: 7, name: '7', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                    { id: 8, name: '8', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                    { id: 9, name: '9', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                    { id: 10, name: '10', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false }
+                ];
+            });
+
+            // Enhanced substitution tracking
+            const [substitutionCount, setSubstitutionCount] = useState(0);
+            const [subHistory, setSubHistory] = useState([]);
+            const [rotationCount, setRotationCount] = useState(0);
+
+            const [showPlayerForm, setShowPlayerForm] = useState(false);
+            const [editingPlayer, setEditingPlayer] = useState(null);
+            const [teamName, setTeamName] = useState(() => loadFromStorage('volleyball_teamName', teamSlots[teamSlots.active].name));
+            const [minThreshold, setMinThreshold] = useState(() => loadFromStorage('volleyball_minThreshold', 6));
+            const [isOptimizing, setIsOptimizing] = useState(false);
+            const [draggedPlayer, setDraggedPlayer] = useState(null);
+            const [dropZone, setDropZone] = useState(null);
+            const [bestLineups, setBestLineups] = useState([]);
+            const [currentLineupIndex, setCurrentLineupIndex] = useState(0);
+
+            // Enhanced form state with mode-specific attributes
+            const [playerForm, setPlayerForm] = useState({
+                name: '',
+                defense: 3,
+                serving: 3,
+                serveReceive: 3,
+                setting: 3,
+                allAround: 3,
+                active: true,
+                star: false
+            });
+
+            // Court positions
+            const [courtPositions, setCourtPositions] = useState(() => 
+                loadFromStorage('volleyball_courtPositions', {
+                    backLeft: null,
+                    frontLeft: null,
+                    frontMiddle: null,
+                    frontRight: null,
+                    backRight: null,
+                    backMiddle: null,
+                    bench: []
+                })
+            );
+
+            // Game Stats Management
+            const getCurrentGameStats = () => {
+                const teamKey = teamSlots.active;
+                if (!gameStats[teamKey]) return null;
+                
+                const currentGameId = gameStats[teamKey].currentGame;
+                if (!currentGameId) return null;
+                
+                return gameStats[teamKey].games.find(g => g.id === currentGameId);
+            };
+
+            const getPlayerGameStat = (playerId, category, type) => {
+                const currentGame = getCurrentGameStats();
+                if (!currentGame || !currentGame.playerStats[playerId]) return 0;
+                return currentGame.playerStats[playerId][category][type] || 0;
+            };
+
+            const updatePlayerGameStat = (playerId, category, type) => {
+                const teamKey = teamSlots.active;
+                
+                setGameStats(prev => {
+                    const updated = { ...prev };
+                    
+                    // Initialize team stats if needed
+                    if (!updated[teamKey]) {
+                        updated[teamKey] = { games: [], currentGame: null };
+                    }
+                    
+                    // Initialize current game if needed
+                    if (!updated[teamKey].currentGame) {
+                        const newGameId = Date.now();
+                        updated[teamKey].games.push({
+                            id: newGameId,
+                            date: new Date().toISOString().split('T')[0],
+                            locked: false,
+                            playerStats: {}
+                        });
+                        updated[teamKey].currentGame = newGameId;
+                    }
+                    
+                    const currentGameId = updated[teamKey].currentGame;
+                    const gameIndex = updated[teamKey].games.findIndex(g => g.id === currentGameId);
+                    
+                    if (gameIndex >= 0) {
+                        // Initialize player stats if needed
+                        if (!updated[teamKey].games[gameIndex].playerStats[playerId]) {
+                            updated[teamKey].games[gameIndex].playerStats[playerId] = {
+                                defense: { success: 0, miss: 0 },
+                                serving: { success: 0, miss: 0 }
+                            };
+                        }
+                        
+                        // Update the specific stat
+                        updated[teamKey].games[gameIndex].playerStats[playerId][category][type]++;
+                    }
+                    
+                    // Save to localStorage
+                    localStorage.setItem('volleyball_gameStats', JSON.stringify(updated));
+                    
+                    return updated;
+                });
+                
+                // Trigger haptic feedback if available
+                if (navigator.vibrate) {
+                    navigator.vibrate(50);
+                }
+            };
+
+            const getCumulativeStats = (playerId, category, type) => {
+                const teamKey = teamSlots.active;
+                if (!gameStats[teamKey]) return 0;
+                
+                return gameStats[teamKey].games
+                    .filter(game => game.locked)
+                    .reduce((total, game) => {
+                        if (game.playerStats[playerId] && game.playerStats[playerId][category]) {
+                            return total + (game.playerStats[playerId][category][type] || 0);
+                        }
+                        return total;
+                    }, 0);
+            };
+          // Animation references
+            const animationRefs = useRef(new Map());
+
+            const triggerStatAnimation = (playerId, position, type) => {
+                const element = document.querySelector(`[data-player-id="${playerId}"]`);
+                if (!element) return;
+                
+                const rect = element.getBoundingClientRect();
+                const animationId = `${playerId}-${Date.now()}`;
+                
+                const animation = document.createElement('div');
+                animation.className = `stat-animation ${type === 'success' ? 'plus-anim' : 'minus-anim'}`;
+                animation.textContent = type === 'success' ? '+' : '✗';
+                animation.style.position = 'fixed';
+                animation.style.left = `${rect.left + rect.width / 2}px`;
+                animation.style.top = `${rect.top + rect.height / 2}px`;
+                animation.style.zIndex = '1000';
+                
+                document.body.appendChild(animation);
+                
+                setTimeout(() => {
+                    if (animation.parentNode) {
+                        animation.parentNode.removeChild(animation);
+                    }
+                }, 800);
+            };
+          // Fixed team switching with proper slot rotation
+            const switchTeam = (targetSlot) => {
+                // Save current team data before switching
+                saveToStorage('volleyball_players', players);
+                saveToStorage('volleyball_teamName', teamName);
+                saveToStorage('volleyball_minThreshold', minThreshold);
+                saveToStorage('volleyball_courtPositions', courtPositions);
+                localStorage.setItem(`volleyball_playMode_${teamSlots.active}`, playMode);
+                
+                // Update team name in slots
+                const currentActiveSlot = teamSlots.active;
+                const updatedSlots = {
+                    ...teamSlots,
+                    active: targetSlot,
+                    [currentActiveSlot]: { ...teamSlots[currentActiveSlot], name: teamName, hasData: true }
+                };
+                
+                setTeamSlots(updatedSlots);
+                localStorage.setItem('volleyball_teamSlots', JSON.stringify(updatedSlots));
+                
+                // Load target team data
+                const targetTeamData = localStorage.getItem(`volleyball_players_${targetSlot}`);
+                if (targetTeamData) {
+                    const parsedPlayers = JSON.parse(targetTeamData);
+                    setPlayers(parsedPlayers.map(p => ({
+                        ...p,
+                        serveReceive: p.serveReceive || 3,
+                        setting: p.setting || 3,
+                        allAround: p.allAround || 3,
+                        subPair: p.subPair || null,
+                        subColor: p.subColor || null,
+                        isFullTime: p.isFullTime || false
+                    })));
+                } else {
+                    setPlayers([
+                        { id: 1, name: '1', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                        { id: 2, name: '2', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                        { id: 3, name: '3', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                        { id: 4, name: '4', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                        { id: 5, name: '5', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                        { id: 6, name: '6', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                        { id: 7, name: '7', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                        { id: 8, name: '8', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                        { id: 9, name: '9', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false },
+                        { id: 10, name: '10', defense: 3, serving: 3, serveReceive: 3, setting: 3, allAround: 3, active: true, star: false, subPair: null, subColor: null, isFullTime: false }
+                    ]);
+                }
+                
+                // Load other team-specific data
+                const targetTeamName = localStorage.getItem(`volleyball_teamName_${targetSlot}`);
+                setTeamName(targetTeamName ? JSON.parse(targetTeamName) : updatedSlots[targetSlot].name);
+                
+                const targetMinThreshold = localStorage.getItem(`volleyball_minThreshold_${targetSlot}`);
+                setMinThreshold(targetMinThreshold ? JSON.parse(targetMinThreshold) : 6);
+                
+                const targetCourtPositions = localStorage.getItem(`volleyball_courtPositions_${targetSlot}`);
+                setCourtPositions(targetCourtPositions ? JSON.parse(targetCourtPositions) : {
+                    backLeft: null, frontLeft: null, frontMiddle: null,
+                    frontRight: null, backRight: null, backMiddle: null, bench: []
+                });
+                
+                const targetPlayMode = localStorage.getItem(`volleyball_playMode_${targetSlot}`);
+                setPlayMode(targetPlayMode || 'rotational');
+                
+                // Reset optimization and substitution state
+                setBestLineups([]);
+                setCurrentLineupIndex(0);
+                setSubstitutionCount(0);
+                setSubHistory([]);
+                setRotationCount(0);
+            };
+
+            // Game Management Functions
+            const toggleGameMode = () => {
+                if (gameMode) {
+                    // Exiting game mode - ensure game is locked
+                    lockCurrentGame();
+                }
+                setGameMode(!gameMode);
+            };
+
+            const startNewGame = () => {
+                // Lock current game if exists
+                lockCurrentGame();
+                // Create new game
+                const teamKey = teamSlots.active;
+                const newGameId = Date.now();
+                
+                setGameStats(prev => {
+                    const updated = { ...prev };
+                    
+                    if (!updated[teamKey]) {
+                        updated[teamKey] = { games: [], currentGame: null };
+                    }
+                    
+                    updated[teamKey].games.push({
+                        id: newGameId,
+                        date: new Date().toISOString().split('T')[0],
+                        locked: false,
+                        playerStats: {}
+                    });
+                    updated[teamKey].currentGame = newGameId;
+                    
+                    localStorage.setItem('volleyball_gameStats', JSON.stringify(updated));
+                    return updated;
+                });
+            };
+
+            const lockCurrentGame = () => {
+                const teamKey = teamSlots.active;
+                const currentGame = getCurrentGameStats();
+                
+                if (!currentGame || currentGame.locked) return;
+                
+                setGameStats(prev => {
+                    const updated = { ...prev };
+                    const gameIndex = updated[teamKey].games.findIndex(g => g.id === currentGame.id);
+                    
+                    if (gameIndex >= 0) {
+                        updated[teamKey].games[gameIndex].locked = true;
+                    }
+                    
+                    localStorage.setItem('volleyball_gameStats', JSON.stringify(updated));
+                    return updated;
+                });
+            };
+
+            const unlockCurrentGame = () => {
+                const teamKey = teamSlots.active;
+                const currentGame = getCurrentGameStats();
+                
+                if (!currentGame || !currentGame.locked) return;
+                
+                if (confirm('Are you sure you want to unlock this game? This will allow stats to be modified.')) {
+                    setGameStats(prev => {
+                        const updated = { ...prev };
+                        const gameIndex = updated[teamKey].games.findIndex(g => g.id === currentGame.id);
+                        
+                        if (gameIndex >= 0) {
+                            updated[teamKey].games[gameIndex].locked = false;
+                        }
+                        
+                        localStorage.setItem('volleyball_gameStats', JSON.stringify(updated));
+                        return updated;
+                    });
+                }
+            };
+
+            const getTeamTotals = (category, type) => {
+                const activePlayers = players.filter(p => p.active);
+                return activePlayers.reduce((total, player) => {
+                    return total + getPlayerGameStat(player.id, category, type);
+                }, 0);
+            };
+
+            // Save to localStorage whenever data changes
+            useEffect(() => {
+                saveToStorage('volleyball_players', players);
+            }, [players]);
+
+            useEffect(() => {
+                saveToStorage('volleyball_teamName', teamName);
+                // Update team name in slots
+                setTeamSlots(prev => {
+                    const updated = {
+                        ...prev,
+                        [prev.active]: { ...prev[prev.active], name: teamName }
+                    };
+                    localStorage.setItem('volleyball_teamSlots', JSON.stringify(updated));
+                    return updated;
+                });
+            }, [teamName]);
+
+            useEffect(() => {
+                saveToStorage('volleyball_minThreshold', minThreshold);
+            }, [minThreshold]);
+
+            useEffect(() => {
+                saveToStorage('volleyball_courtPositions', courtPositions);
+            }, [courtPositions]);
+
+            useEffect(() => {
+                localStorage.setItem(`volleyball_playMode_${teamSlots.active}`, playMode);
+            }, [playMode, teamSlots.active]);
+
+            // Auto-save game stats periodically
+            useEffect(() => {
+                if (!gameMode) return;
+                
+                const autoSave = setInterval(() => {
+                    localStorage.setItem('volleyball_gameStats', JSON.stringify(gameStats));
+                }, 10000); // Save every 10 seconds
+                
+                return () => clearInterval(autoSave);
+            }, [gameMode, gameStats]);
+
+            // PWA Install Prompt Handling
+            useEffect(() => {
+                const handleBeforeInstallPrompt = (e) => {
+                    e.preventDefault();
+                    setDeferredPrompt(e);
+                    setShowInstallPrompt(true);
+                };
+
+                const handleAppInstalled = () => {
+                    setShowInstallPrompt(false);
+                    setDeferredPrompt(null);
+                };
+
+                window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+                window.addEventListener('appinstalled', handleAppInstalled);
+
+                return () => {
+                    window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+                    window.removeEventListener('appinstalled', handleAppInstalled);
+                };
+            }, []);
+
+            // Register Service Worker
+            useEffect(() => {
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('./sw.js')
+                        .then((registration) => {
+                            console.log('SW registered: ', registration);
+                        })
+                        .catch((registrationError) => {
+                            console.log('SW registration failed: ', registrationError);
+                        });
+                }
+            }, []);
+
+            const handleInstallClick = async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    if (outcome === 'accepted') {
+                        setShowInstallPrompt(false);
+                    }
+                    setDeferredPrompt(null);
+                }
+            };
+          // Enhanced color assignment utility with better contrast
+            const SUB_COLORS = ['sub-color-1', 'sub-color-2', 'sub-color-3', 'sub-color-4', 'sub-color-5', 'sub-color-6'];
+
+            // Get available sub colors
+            const getAvailableSubColors = () => {
+                const usedColors = new Set(players.map(p => p.subColor).filter(p => p !== null));
+                return SUB_COLORS.filter((_, index) => !usedColors.has(index));
+            };
+
+            // Enhanced player management functions
+            const handleAddPlayer = () => {
+                if (playerForm.name.trim()) {
+                    const newPlayer = {
+                        id: Date.now(),
+                        ...playerForm,
+                        subPair: null,
+                        subColor: null,
+                        isFullTime: false
+                    };
+                    setPlayers([...players, newPlayer]);
+                    setPlayerForm({ 
+                        name: '', 
+                        defense: 3, 
+                        serving: 3, 
+                        serveReceive: 3, 
+                        setting: 3, 
+                        allAround: 3, 
+                        active: true, 
+                        star: false 
+                    });
+                    setShowPlayerForm(false);
+                }
+            };
+
+            const handleEditPlayer = (player) => {
+                if (draggedPlayer) return;
+                setEditingPlayer(player.id);
+                setPlayerForm({
+                    name: player.name,
+                    defense: player.defense,
+                    serving: player.serving,
+                    serveReceive: player.serveReceive || 3,
+                    setting: player.setting || 3,
+                    allAround: player.allAround || 3,
+                    active: player.active,
+                    star: player.star
+                });
+                setShowPlayerForm(true);
+            };
+
+            const handleUpdatePlayer = () => {
+                setPlayers(players.map(p => 
+                    p.id === editingPlayer ? { 
+                        ...p, 
+                        name: playerForm.name,
+                        defense: playerForm.defense,
+                        serving: playerForm.serving,
+                        serveReceive: playerForm.serveReceive,
+                        setting: playerForm.setting,
+                        allAround: playerForm.allAround,
+                        active: playerForm.active,
+                        star: playerForm.star
+                    } : p
+                ));
+                setEditingPlayer(null);
+                setPlayerForm({ 
+                    name: '', 
+                    defense: 3, 
+                    serving: 3, 
+                    serveReceive: 3, 
+                    setting: 3, 
+                    allAround: 3, 
+                    active: true, 
+                    star: false 
+                });
+                setShowPlayerForm(false);
+            };
+
+            const togglePlayerActive = (id) => {
+                setPlayers(players.map(p => 
+                    p.id === id ? { ...p, active: !p.active } : p
+                ));
+            };
+
+            const togglePlayerStar = (id) => {
+                const currentStars = players.filter(p => p.star).length;
+                const targetPlayer = players.find(p => p.id === id);
+                
+                if (!targetPlayer.star && currentStars >= 3) {
+                    return;
+                }
+                
+                setPlayers(players.map(p => 
+                    p.id === id ? { ...p, star: !p.star } : p
+                ));
+            };
+          // Fixed substitution pairing functions with proper color assignment
+            const createSubPair = (player1Id, player2Id) => {
+                const availableColors = getAvailableSubColors();
+                if (availableColors.length === 0) return false;
+
+                const colorIndex = SUB_COLORS.indexOf(availableColors[0]);
+
+                setPlayers(prev => prev.map(p => {
+                    if (p.id === player1Id || p.id === player2Id) {
+                        return { 
+                            ...p, 
+                            subPair: p.id === player1Id ? player2Id : player1Id,
+                            subColor: colorIndex,
+                            isFullTime: false
+                        };
+                    }
+                    return p;
+                }));
+                return true;
+            };
+
+            const removeSubPair = (playerId) => {
+                const player = players.find(p => p.id === playerId);
+                if (!player || !player.subPair) return;
+
+                const pairId = player.subPair;
+                setPlayers(prev => prev.map(p => {
+                    if (p.id === playerId || p.id === pairId) {
+                        return { ...p, subPair: null, subColor: null, isFullTime: false };
+                    }
+                    return p;
+                }));
+            };
+
+            const changeSubColor = (playerId, newColorIndex) => {
+                const player = players.find(p => p.id === playerId);
+                if (!player || !player.subPair) return;
+
+                const pairId = player.subPair;
+                setPlayers(prev => prev.map(p => {
+                    if (p.id === playerId || p.id === pairId) {
+                        return { ...p, subColor: newColorIndex };
+                    }
+                    return p;
+                }));
+            };
+
+            // Check if a position is in back row
+            const isBackRowPosition = (position) => {
+                return ['backLeft', 'backMiddle', 'backRight'].includes(position);
+            };
+
+            // Determine which players should be full-time (no subs) based on roster size
+            const determineFullTimePlayers = (activePlayers) => {
+                if (activePlayers.length <= 6) {
+                    // Not enough players for any subs - all are full-time
+                    return activePlayers.map(p => p.id);
+                }
+                
+                const availableForPairing = activePlayers.length - (activePlayers.filter(p => p.star).length);
+                const needFullTime = availableForPairing % 2; // Odd number means someone needs to be full-time
+                
+                if (needFullTime === 0) return [];
+                
+                // Select highest all-around rated players as full-time
+                const sortedByAllAround = activePlayers
+                    .filter(p => !p.star) // Stars are already marked as no-sub
+                    .sort((a, b) => b.allAround - a.allAround);
+                    
+                return sortedByAllAround.slice(0, needFullTime).map(p => p.id);
+            };
+
+            // Strategy definitions (expandable for future)
+            const SUBSTITUTIONAL_STRATEGIES = [
+                { id: 0, name: 'Separate Lowest Players', description: 'Places lowest 2 players in different pairs' },
+                { id: 1, name: 'Pair Lowest Players', description: 'Places lowest 2 players in same pair' }
+            ];
+          // Helper function to optimize court positions
+            const optimizeCourtPositions = (courtPlayers, unpairedPlayers) => {
+                // Special handling for exactly 2 unpaired players
+                if (unpairedPlayers.length === 2) {
+                    const paired = courtPlayers.filter(p => !unpairedPlayers.some(up => up.id === p.id));
+                    const unpaired1 = unpairedPlayers[0];
+                    const unpaired2 = unpairedPlayers[1];
+                    
+                    // Try different arrangements where unpaired players are 3 positions apart
+                    const validArrangements = [
+                        // unpaired1 at position 0 (backLeft), unpaired2 at position 3 (frontRight)
+                        [unpaired1, paired[0], paired[1], unpaired2, paired[2], paired[3]],
+                        // unpaired1 at position 1 (frontLeft), unpaired2 at position 4 (backRight)
+                        [paired[0], unpaired1, paired[1], paired[2], unpaired2, paired[3]],
+                        // unpaired1 at position 2 (frontMiddle), unpaired2 at position 5 (backMiddle)
+                        [paired[0], paired[1], unpaired1, paired[2], paired[3], unpaired2]
+                    ];
+                    
+                    let bestPositions = null;
+                    let bestMinSR = -1;
+                    
+                    for (const arrangement of validArrangements) {
+                        const testPositions = {
+                            backLeft: arrangement[0],
+                            frontLeft: arrangement[1],
+                            frontMiddle: arrangement[2],
+                            frontRight: arrangement[3],
+                            backRight: arrangement[4],
+                            backMiddle: arrangement[5]
+                        };
+                        
+                        const minSR = calculateMinBackRowSR(testPositions);
+                        if (minSR > bestMinSR) {
+                            bestMinSR = minSR;
+                            bestPositions = testPositions;
+                        }
+                    }
+                    
+                    return bestPositions || {
+                        backLeft: courtPlayers[0],
+                        frontLeft: courtPlayers[1],
+                        frontMiddle: courtPlayers[2],
+                        frontRight: courtPlayers[3],
+                        backRight: courtPlayers[4],
+                        backMiddle: courtPlayers[5]
+                    };
+                }
+                
+                // Original logic for other cases
+                let bestPositions = null;
+                let bestMinSR = -1;
+
+                for (let startPos = 0; startPos < 6; startPos++) {
+                    const testPositions = {
+                        backLeft: courtPlayers[startPos % 6],
+                        frontLeft: courtPlayers[(startPos + 1) % 6],
+                        frontMiddle: courtPlayers[(startPos + 2) % 6],
+                        frontRight: courtPlayers[(startPos + 3) % 6],
+                        backRight: courtPlayers[(startPos + 4) % 6],
+                        backMiddle: courtPlayers[(startPos + 5) % 6]
+                    };
+
+                    if (!checkUnpairedPositioning(testPositions, unpairedPlayers)) {
+                        continue;
+                    }
+
+                    const minSR = calculateMinBackRowSR(testPositions);
+                    
+                    if (minSR > bestMinSR) {
+                        bestMinSR = minSR;
+                        bestPositions = testPositions;
+                    }
+                }
+
+                if (!bestPositions) {
+                    bestPositions = {
+                        backLeft: courtPlayers[0],
+                        frontLeft: courtPlayers[1],
+                        frontMiddle: courtPlayers[2],
+                        frontRight: courtPlayers[3],
+                        backRight: courtPlayers[4],
+                        backMiddle: courtPlayers[5]
+                    };
+                }
+
+                return bestPositions;
+            };
+          // Helper function to check unpaired player positioning
+            const checkUnpairedPositioning = (positions, unpairedPlayers) => {
+                if (unpairedPlayers.length !== 2) return true; // Only enforce for exactly 2 unpaired
+
+                const positionArray = [
+                    positions.backLeft,    // position 0
+                    positions.frontLeft,   // position 1  
+                    positions.frontMiddle, // position 2
+                    positions.frontRight,  // position 3
+                    positions.backRight,   // position 4
+                    positions.backMiddle   // position 5
+                ];
+
+                const unpairedPositions = [];
+                positionArray.forEach((player, index) => {
+                    if (player && unpairedPlayers.some(up => up.id === player.id)) {
+                        unpairedPositions.push(index);
+                    }
+                });
+
+                if (unpairedPositions.length === 2) {
+                    const pos1 = unpairedPositions[0];
+                    const pos2 = unpairedPositions[1];
+                    
+                    // Check if they are in opposite rows (3 positions apart)
+                    // Valid pairs: (0,3), (1,4), (2,5) - exactly 3 positions apart
+                    const diff = Math.abs(pos1 - pos2);
+                    return diff === 3;
+                }
+
+                return true;
+            };
+
+            // Helper function to calculate minimum back row SR across rotations
+            const calculateMinBackRowSR = (startPositions) => {
+                let minSR = Infinity;
+                let currentPositions = { ...startPositions };
+
+                for (let rotation = 0; rotation < 6; rotation++) {
+                    const backRowSR = (currentPositions.backLeft?.serveReceive || 0) +
+                                     (currentPositions.backMiddle?.serveReceive || 0) +
+                                     (currentPositions.backRight?.serveReceive || 0);
+                    
+                    minSR = Math.min(minSR, backRowSR);
+
+                    // Rotate positions
+                    const newPositions = {
+                        backRight: currentPositions.backMiddle,
+                        frontRight: currentPositions.backRight,
+                        frontMiddle: currentPositions.frontRight,
+                        frontLeft: currentPositions.frontMiddle,
+                        backLeft: currentPositions.frontLeft,
+                        backMiddle: currentPositions.backLeft
+                    };
+                    currentPositions = newPositions;
+                }
+
+                return minSR;
+            };
+
+            // Complete replacement for optimizeSubstitutionalPlay function
+            const optimizeSubstitutionalPlay = async () => {
+                setIsOptimizing(true);
+                
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                const activePlayers = players.filter(p => p.active);
+                
+                if (activePlayers.length < 6) {
+                    alert("Need at least 6 active players for optimization.");
+                    setIsOptimizing(false);
+                    return;
+                }
+
+                // Clear existing pairs and markings
+                const updatedPlayers = [...players];
+                updatedPlayers.forEach(p => {
+                    if (p.active) {
+                        p.subPair = null;
+                        p.subColor = null;
+                        p.isFullTime = false;
+                        p.star = false;
+                    }
+                });
+
+                // Step 1: Rank players by overall rating (allAround score)
+                const rankedPlayers = [...activePlayers].sort((a, b) => b.allAround - a.allAround);
+                
+                // Step 2: Determine unpaired (full-time) players - FIXED LOGIC
+                const numPlayers = activePlayers.length;
+                let numUnpaired;
+                let numPairs;
+
+                if (numPlayers <= 6) {
+                    numUnpaired = numPlayers; // Everyone is unpaired (not enough for subs)
+                    numPairs = 0;
+                } else {
+                    // Calculate how many pairs we can make while keeping 6 on court
+                    // For 10 players: want 2 unpaired + 4 pairs = 6 on court
+                    // For 8 players: want 2 unpaired + 3 pairs = 5 on court... wait that's wrong
+                    
+                    // Correct approach: 6 must be on court always
+                    // If we have N players, we want (6-unpaired) pairs, where each pair contributes 1 to court
+                    // So: unpaired + pairs = 6, and pairs*2 + unpaired = N
+                    // Solving: pairs = N-6, unpaired = 6-pairs = 12-N
+                    
+                    if (numPlayers === 7) {
+                        numUnpaired = 5; numPairs = 1; // 5 unpaired + 1 pair = 6 on court
+                    } else if (numPlayers === 8) {
+                        numUnpaired = 4; numPairs = 2; // 4 unpaired + 2 pairs = 6 on court  
+                    } else if (numPlayers === 9) {
+                        numUnpaired = 3; numPairs = 3; // 3 unpaired + 3 pairs = 6 on court
+                    } else if (numPlayers === 10) {
+                        numUnpaired = 2; numPairs = 4; // 2 unpaired + 4 pairs = 6 on court
+                    } else if (numPlayers === 11) {
+                        numUnpaired = 1; numPairs = 5; // 1 unpaired + 5 pairs = 6 on court
+                    } else if (numPlayers >= 12) {
+                        numUnpaired = 0; numPairs = 6; // 0 unpaired + 6 pairs = 6 on court
+                    }
+                }
+
+                // Step 3: Mark unpaired players
+                const unpairedPlayers = rankedPlayers.slice(0, numUnpaired);
+                unpairedPlayers.forEach(player => {
+                    const updatedPlayer = updatedPlayers.find(p => p.id === player.id);
+                    if (updatedPlayer) {
+                        updatedPlayer.star = true;
+                        updatedPlayer.isFullTime = true;
+                    }
+                });
+
+                // Step 4: Create pairs from remaining players - FIXED
+                const pairablePlayers = rankedPlayers.slice(numUnpaired);
+                const pairs = [];
+
+                // Only create pairs if we have players to pair
+                if (numPairs > 0 && pairablePlayers.length >= 2) {
+                    // Strategy-specific pairing logic
+                    if (optimizationStrategy === 0) {
+                        // Strategy 1: Separate lowest 2 players into different pairs
+                        if (pairablePlayers.length >= 4 && numPairs >= 2) {
+                            const lowestPlayer = pairablePlayers[pairablePlayers.length - 1];
+                            const secondLowestPlayer = pairablePlayers[pairablePlayers.length - 2];
+                            
+                            // Remove lowest players from main pairing pool
+                            const mainPairingPool = pairablePlayers.slice(0, -2);
+                            
+                            // Sort remaining by serve receive for pairing with lowest players
+                            const srSorted = mainPairingPool.sort((a, b) => b.serveReceive - a.serveReceive);
+                            
+                            // Pair each low player with a high SR player
+                            if (srSorted.length >= 2) {
+                                pairs.push([lowestPlayer, srSorted[0]]);
+                                pairs.push([secondLowestPlayer, srSorted[1]]);
+                                
+                                // Pair remaining players up to numPairs
+                                const remaining = srSorted.slice(2);
+                                for (let i = 0; i < remaining.length - 1 && pairs.length < numPairs; i += 2) {
+                                    pairs.push([remaining[i], remaining[i + 1]]);
+                                }
+                            }
+                        } else {
+                            // Fall back to basic pairing
+                            for (let i = 0; i < pairablePlayers.length - 1 && pairs.length < numPairs; i += 2) {
+                                pairs.push([pairablePlayers[i], pairablePlayers[i + 1]]);
+                            }
+                        }
+                    } else {
+                        // Strategy 2: Pair lowest 2 players together
+                        if (pairablePlayers.length >= 2) {
+                            const lowestPlayer = pairablePlayers[pairablePlayers.length - 1];
+                            const secondLowestPlayer = pairablePlayers[pairablePlayers.length - 2];
+                            
+                            pairs.push([lowestPlayer, secondLowestPlayer]);
+                            
+                            // Pair remaining players optimally up to numPairs
+                            const remaining = pairablePlayers.slice(0, -2);
+                            for (let i = 0; i < remaining.length - 1 && pairs.length < numPairs; i += 2) {
+                                pairs.push([remaining[i], remaining[i + 1]]);
+                            }
+                        }
+                    }
+                }
+              
