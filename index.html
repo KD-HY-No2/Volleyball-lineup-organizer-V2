@@ -866,31 +866,43 @@ if (numPairs > 0 && pairablePlayers.length >= 2) {
     // Add all unpaired players first
     courtPlayers.push(...unpairedPlayers);
 
-    // Add one player from each pair, choosing based on position needs
-    const processedPairs = new Set();
-    updatedPlayers.forEach(player => {
-        if (player.active && player.subPair && !processedPairs.has(player.id)) {
-            const partner = updatedPlayers.find(p => p.id === player.subPair);
-            if (partner) {
-                processedPairs.add(player.id);
-                processedPairs.add(partner.id);
+   // Add one player from each pair - temporarily add both, we'll optimize positions later
+const processedPairs = new Set();
+const pairCandidates = [];
 
-                // For starting lineup, choose based on position flexibility
-// Prefer player who can handle both front and back row better
-const player1FlexScore = (player.serveReceive + player.setting) / 2;
-const player2FlexScore = (partner.serveReceive + partner.setting) / 2;
-const starterPlayer = player1FlexScore >= player2FlexScore ? player : partner;
-const benchPlayer = starterPlayer === player ? partner : player;
-                
-                if (courtPlayers.length < 6) {
-                    courtPlayers.push(starterPlayer);
-                    benchPlayers.push(benchPlayer);
-                } else {
-                    benchPlayers.push(starterPlayer, benchPlayer);
-                }
-            }
+updatedPlayers.forEach(player => {
+    if (player.active && player.subPair && !processedPairs.has(player.id)) {
+        const partner = updatedPlayers.find(p => p.id === player.subPair);
+        if (partner) {
+            processedPairs.add(player.id);
+            processedPairs.add(partner.id);
+            pairCandidates.push({ player1: player, player2: partner });
         }
-    });
+    }
+});
+
+// Fill remaining court spots with highest rated available
+const remainingPlayers = updatedPlayers.filter(p => 
+    p.active && !courtPlayers.includes(p) && !pairCandidates.some(pair => 
+        pair.player1.id === p.id || pair.player2.id === p.id)
+);
+const sortedRemaining = remainingPlayers.sort((a, b) => b.allAround - a.allAround);
+
+while (courtPlayers.length < 6 && (pairCandidates.length > 0 || sortedRemaining.length > 0)) {
+    if (pairCandidates.length > 0) {
+        const pair = pairCandidates.shift();
+        courtPlayers.push(pair.player1); // Temporarily add player1, will optimize below
+        benchPlayers.push(pair.player2);
+    } else if (sortedRemaining.length > 0) {
+        courtPlayers.push(sortedRemaining.shift());
+    }
+}
+
+// Add remaining candidates to bench
+pairCandidates.forEach(pair => {
+    benchPlayers.push(pair.player1, pair.player2);
+});
+benchPlayers.push(...sortedRemaining);
 
     // Fill remaining court spots with highest rated available
     const remainingPlayers = updatedPlayers.filter(p => 
@@ -905,12 +917,51 @@ const benchPlayer = starterPlayer === player ? partner : player;
 
     setPlayers(updatedPlayers);
 
-// Step 7: Optimize court positions for maximum back row serve receive
+// Step 7: Intelligently assign court positions based on player strengths
 if (courtPlayers.length >= 6) {
-    const optimizedPositions = optimizeCourtPositions(courtPlayers, unpairedPlayers);
+    // First, create initial position assignments
+    const initialPositions = optimizeCourtPositions(courtPlayers, unpairedPlayers);
+    
+    // Now, for each pair, ensure the right player is on court for their starting position
+    const finalCourtPlayers = [...courtPlayers];
+    const finalBenchPlayers = [...benchPlayers];
+    
+    // Check each position and swap with bench partner if needed for optimal positioning
+    Object.keys(initialPositions).forEach(position => {
+        if (position === 'bench' || !initialPositions[position]) return;
+        
+        const currentPlayer = initialPositions[position];
+        const benchPartner = finalBenchPlayers.find(p => p.subPair === currentPlayer.id);
+        
+        if (benchPartner) {
+            const isBackRow = isBackRowPosition(position);
+            let shouldSwap = false;
+            
+            if (isBackRow) {
+                // Back row: prefer higher serve receive
+                shouldSwap = benchPartner.serveReceive > currentPlayer.serveReceive;
+            } else {
+                // Front row: prefer higher setting
+                shouldSwap = benchPartner.setting > currentPlayer.setting;
+            }
+            
+            if (shouldSwap) {
+                // Swap the players
+                const courtIndex = finalCourtPlayers.indexOf(currentPlayer);
+                const benchIndex = finalBenchPlayers.indexOf(benchPartner);
+                
+                if (courtIndex >= 0 && benchIndex >= 0) {
+                    finalCourtPlayers[courtIndex] = benchPartner;
+                    finalBenchPlayers[benchIndex] = currentPlayer;
+                    initialPositions[position] = benchPartner;
+                }
+            }
+        }
+    });
+    
     setCourtPositions({
-        ...optimizedPositions,
-        bench: benchPlayers
+        ...initialPositions,
+        bench: finalBenchPlayers
     });
 }
 
