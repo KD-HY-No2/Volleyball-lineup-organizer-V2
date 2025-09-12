@@ -702,19 +702,38 @@ const optimizeSubstitutionalPlay = async () => {
     // Step 1: Rank players by overall rating (allAround score)
     const rankedPlayers = [...activePlayers].sort((a, b) => b.allAround - a.allAround);
     
-    // Step 2: Determine unpaired (full-time) players
-    const numPlayers = activePlayers.length;
-    let numUnpaired;
+    // Step 2: Determine unpaired (full-time) players - FIXED LOGIC
+const numPlayers = activePlayers.length;
+let numUnpaired;
+let numPairs;
+
+if (numPlayers <= 6) {
+    numUnpaired = numPlayers; // Everyone is unpaired (not enough for subs)
+    numPairs = 0;
+} else {
+    // Calculate how many pairs we can make while keeping 6 on court
+    // For 10 players: want 2 unpaired + 4 pairs = 6 on court
+    // For 8 players: want 2 unpaired + 3 pairs = 5 on court... wait that's wrong
     
-    if (numPlayers <= 6) {
-        numUnpaired = numPlayers; // Everyone is unpaired
-    } else if (numPlayers <= 8) {
-        numUnpaired = 2; // Top 2 are unpaired
-    } else if (numPlayers <= 10) {
-        numUnpaired = numPlayers % 2; // 0 or 1 unpaired to make even pairs
-    } else {
-        numUnpaired = Math.max(2, numPlayers % 2); // At least 2, more if needed for even pairs
+    // Correct approach: 6 must be on court always
+    // If we have N players, we want (6-unpaired) pairs, where each pair contributes 1 to court
+    // So: unpaired + pairs = 6, and pairs*2 + unpaired = N
+    // Solving: pairs = N-6, unpaired = 6-pairs = 12-N
+    
+    if (numPlayers === 7) {
+        numUnpaired = 5; numPairs = 1; // 5 unpaired + 1 pair = 6 on court
+    } else if (numPlayers === 8) {
+        numUnpaired = 4; numPairs = 2; // 4 unpaired + 2 pairs = 6 on court  
+    } else if (numPlayers === 9) {
+        numUnpaired = 3; numPairs = 3; // 3 unpaired + 3 pairs = 6 on court
+    } else if (numPlayers === 10) {
+        numUnpaired = 2; numPairs = 4; // 2 unpaired + 4 pairs = 6 on court
+    } else if (numPlayers === 11) {
+        numUnpaired = 1; numPairs = 5; // 1 unpaired + 5 pairs = 6 on court
+    } else if (numPlayers >= 12) {
+        numUnpaired = 0; numPairs = 6; // 0 unpaired + 6 pairs = 6 on court
     }
+}
 
     // Step 3: Mark unpaired players
     const unpairedPlayers = rankedPlayers.slice(0, numUnpaired);
@@ -726,14 +745,16 @@ const optimizeSubstitutionalPlay = async () => {
         }
     });
 
-    // Step 4: Create pairs from remaining players
-    const pairablePlayers = rankedPlayers.slice(numUnpaired);
-    const pairs = [];
-    
+// Step 4: Create pairs from remaining players - FIXED
+const pairablePlayers = rankedPlayers.slice(numUnpaired);
+const pairs = [];
+
+// Only create pairs if we have players to pair
+if (numPairs > 0 && pairablePlayers.length >= 2) {
     // Strategy-specific pairing logic
     if (optimizationStrategy === 0) {
         // Strategy 1: Separate lowest 2 players into different pairs
-        if (pairablePlayers.length >= 4) {
+        if (pairablePlayers.length >= 4 && numPairs >= 2) {
             const lowestPlayer = pairablePlayers[pairablePlayers.length - 1];
             const secondLowestPlayer = pairablePlayers[pairablePlayers.length - 2];
             
@@ -748,15 +769,15 @@ const optimizeSubstitutionalPlay = async () => {
                 pairs.push([lowestPlayer, srSorted[0]]);
                 pairs.push([secondLowestPlayer, srSorted[1]]);
                 
-                // Pair remaining players
+                // Pair remaining players up to numPairs
                 const remaining = srSorted.slice(2);
-                for (let i = 0; i < remaining.length - 1; i += 2) {
+                for (let i = 0; i < remaining.length - 1 && pairs.length < numPairs; i += 2) {
                     pairs.push([remaining[i], remaining[i + 1]]);
                 }
             }
         } else {
-            // Not enough for strategy 1, fall back to basic pairing
-            for (let i = 0; i < pairablePlayers.length - 1; i += 2) {
+            // Fall back to basic pairing
+            for (let i = 0; i < pairablePlayers.length - 1 && pairs.length < numPairs; i += 2) {
                 pairs.push([pairablePlayers[i], pairablePlayers[i + 1]]);
             }
         }
@@ -768,14 +789,15 @@ const optimizeSubstitutionalPlay = async () => {
             
             pairs.push([lowestPlayer, secondLowestPlayer]);
             
-            // Pair remaining players optimally
+            // Pair remaining players optimally up to numPairs
             const remaining = pairablePlayers.slice(0, -2);
-            for (let i = 0; i < remaining.length - 1; i += 2) {
+            for (let i = 0; i < remaining.length - 1 && pairs.length < numPairs; i += 2) {
                 pairs.push([remaining[i], remaining[i + 1]]);
             }
         }
     }
-
+}
+    
     // Step 5: Apply color coding to pairs
     pairs.forEach(([player1, player2], index) => {
         const colorIndex = index % SUB_COLORS.length;
