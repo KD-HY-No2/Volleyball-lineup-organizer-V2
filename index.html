@@ -791,8 +791,6 @@ const optimizeSubstitutionalPlay = async () => {
         }
     });
 
-    setPlayers(updatedPlayers);
-
     // Step 6: Generate optimal starting lineup
     const courtPlayers = [];
     const benchPlayers = [];
@@ -833,6 +831,8 @@ const optimizeSubstitutionalPlay = async () => {
         courtPlayers.push(sortedRemaining.shift());
     }
     benchPlayers.push(...sortedRemaining);
+
+    setPlayers(updatedPlayers);
 
 // Step 7: Optimize court positions for maximum back row serve receive
 if (courtPlayers.length >= 6) {
