@@ -571,6 +571,109 @@ const SUBSTITUTIONAL_STRATEGIES = [
     { id: 1, name: 'Pair Lowest Players', description: 'Places lowest 2 players in same pair' }
 ];
 
+// Helper function to optimize court positions
+const optimizeCourtPositions = (courtPlayers, unpairedPlayers) => {
+    // Sort players by serve receive for back row optimization
+    const srSorted = [...courtPlayers].sort((a, b) => b.serveReceive - a.serveReceive);
+    
+    let bestPositions = null;
+    let bestMinSR = -1;
+
+    // Try different rotational arrangements to find best minimum back row SR
+    for (let startPos = 0; startPos < 6; startPos++) {
+        const testPositions = {
+            backLeft: courtPlayers[startPos % 6],
+            frontLeft: courtPlayers[(startPos + 1) % 6],
+            frontMiddle: courtPlayers[(startPos + 2) % 6],
+            frontRight: courtPlayers[(startPos + 3) % 6],
+            backRight: courtPlayers[(startPos + 4) % 6],
+            backMiddle: courtPlayers[(startPos + 5) % 6]
+        };
+
+        // Check if unpaired players are positioned correctly (front/back balance)
+        if (!checkUnpairedPositioning(testPositions, unpairedPlayers)) {
+            continue;
+        }
+
+        // Calculate minimum back row SR across all rotations
+        const minSR = calculateMinBackRowSR(testPositions);
+        
+        if (minSR > bestMinSR) {
+            bestMinSR = minSR;
+            bestPositions = testPositions;
+        }
+    }
+
+    // If no valid arrangement found, use default positioning
+    if (!bestPositions) {
+        bestPositions = {
+            backLeft: courtPlayers[0],
+            frontLeft: courtPlayers[1],
+            frontMiddle: courtPlayers[2],
+            frontRight: courtPlayers[3],
+            backRight: courtPlayers[4],
+            backMiddle: courtPlayers[5]
+        };
+    }
+
+    return bestPositions;
+};
+
+// Helper function to check unpaired player positioning
+const checkUnpairedPositioning = (positions, unpairedPlayers) => {
+    if (unpairedPlayers.length < 2) return true;
+
+    const positionArray = [
+        positions.backLeft, positions.frontLeft, positions.frontMiddle,
+        positions.frontRight, positions.backRight, positions.backMiddle
+    ];
+
+    const unpairedPositions = [];
+    positionArray.forEach((player, index) => {
+        if (unpairedPlayers.some(up => up.id === player.id)) {
+            unpairedPositions.push(index);
+        }
+    });
+
+    // Check if unpaired players are exactly 2 rotation positions apart
+    if (unpairedPositions.length === 2) {
+        const pos1 = unpairedPositions[0];
+        const pos2 = unpairedPositions[1];
+        const diff = Math.abs(pos1 - pos2);
+        return diff === 2 || diff === 4; // Exactly 2 positions apart (accounting for circular arrangement)
+    }
+
+    return true;
+};
+
+// Helper function to calculate minimum back row SR across rotations
+const calculateMinBackRowSR = (startPositions) => {
+    let minSR = Infinity;
+    let currentPositions = { ...startPositions };
+
+    for (let rotation = 0; rotation < 6; rotation++) {
+        const backRowSR = (currentPositions.backLeft?.serveReceive || 0) +
+                         (currentPositions.backMiddle?.serveReceive || 0) +
+                         (currentPositions.backRight?.serveReceive || 0);
+        
+        minSR = Math.min(minSR, backRowSR);
+
+        // Rotate positions
+        const newPositions = {
+            backRight: currentPositions.backMiddle,
+            frontRight: currentPositions.backRight,
+            frontMiddle: currentPositions.frontRight,
+            frontLeft: currentPositions.frontMiddle,
+            backLeft: currentPositions.frontLeft,
+            backMiddle: currentPositions.backLeft
+        };
+        currentPositions = newPositions;
+    }
+
+    return minSR;
+};
+
+            
 // Complete replacement for optimizeSubstitutionalPlay function
 const optimizeSubstitutionalPlay = async () => {
     setIsOptimizing(true);
@@ -739,109 +842,6 @@ const optimizeSubstitutionalPlay = async () => {
             bench: benchPlayers
         });
     }
-
-
-// Helper function to optimize court positions
-const optimizeCourtPositions = (courtPlayers, unpairedPlayers) => {
-    // Sort players by serve receive for back row optimization
-    const srSorted = [...courtPlayers].sort((a, b) => b.serveReceive - a.serveReceive);
-    
-    let bestPositions = null;
-    let bestMinSR = -1;
-
-    // Try different rotational arrangements to find best minimum back row SR
-    for (let startPos = 0; startPos < 6; startPos++) {
-        const testPositions = {
-            backLeft: courtPlayers[startPos % 6],
-            frontLeft: courtPlayers[(startPos + 1) % 6],
-            frontMiddle: courtPlayers[(startPos + 2) % 6],
-            frontRight: courtPlayers[(startPos + 3) % 6],
-            backRight: courtPlayers[(startPos + 4) % 6],
-            backMiddle: courtPlayers[(startPos + 5) % 6]
-        };
-
-        // Check if unpaired players are positioned correctly (front/back balance)
-        if (!checkUnpairedPositioning(testPositions, unpairedPlayers)) {
-            continue;
-        }
-
-        // Calculate minimum back row SR across all rotations
-        const minSR = calculateMinBackRowSR(testPositions);
-        
-        if (minSR > bestMinSR) {
-            bestMinSR = minSR;
-            bestPositions = testPositions;
-        }
-    }
-
-    // If no valid arrangement found, use default positioning
-    if (!bestPositions) {
-        bestPositions = {
-            backLeft: courtPlayers[0],
-            frontLeft: courtPlayers[1],
-            frontMiddle: courtPlayers[2],
-            frontRight: courtPlayers[3],
-            backRight: courtPlayers[4],
-            backMiddle: courtPlayers[5]
-        };
-    }
-
-    return bestPositions;
-};
-
-// Helper function to check unpaired player positioning
-const checkUnpairedPositioning = (positions, unpairedPlayers) => {
-    if (unpairedPlayers.length < 2) return true;
-
-    const positionArray = [
-        positions.backLeft, positions.frontLeft, positions.frontMiddle,
-        positions.frontRight, positions.backRight, positions.backMiddle
-    ];
-
-    const unpairedPositions = [];
-    positionArray.forEach((player, index) => {
-        if (unpairedPlayers.some(up => up.id === player.id)) {
-            unpairedPositions.push(index);
-        }
-    });
-
-    // Check if unpaired players are exactly 2 rotation positions apart
-    if (unpairedPositions.length === 2) {
-        const pos1 = unpairedPositions[0];
-        const pos2 = unpairedPositions[1];
-        const diff = Math.abs(pos1 - pos2);
-        return diff === 2 || diff === 4; // Exactly 2 positions apart (accounting for circular arrangement)
-    }
-
-    return true;
-};
-
-// Helper function to calculate minimum back row SR across rotations
-const calculateMinBackRowSR = (startPositions) => {
-    let minSR = Infinity;
-    let currentPositions = { ...startPositions };
-
-    for (let rotation = 0; rotation < 6; rotation++) {
-        const backRowSR = (currentPositions.backLeft?.serveReceive || 0) +
-                         (currentPositions.backMiddle?.serveReceive || 0) +
-                         (currentPositions.backRight?.serveReceive || 0);
-        
-        minSR = Math.min(minSR, backRowSR);
-
-        // Rotate positions
-        const newPositions = {
-            backRight: currentPositions.backMiddle,
-            frontRight: currentPositions.backRight,
-            frontMiddle: currentPositions.frontRight,
-            frontLeft: currentPositions.frontMiddle,
-            backLeft: currentPositions.frontLeft,
-            backMiddle: currentPositions.backLeft
-        };
-        currentPositions = newPositions;
-    }
-
-    return minSR;
-};
 
 // Modified shuffle function to cycle strategies  
 const shuffleSubstitutionalStrategy = () => {
