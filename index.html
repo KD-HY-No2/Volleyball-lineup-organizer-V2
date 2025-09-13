@@ -2064,24 +2064,68 @@
                 );
             };
 
-            const DropZone = ({ position, currentPlayer, label }) => (
-                React.createElement('div', {
-                    className: `h-16 border-2 border-dashed rounded-lg flex items-center justify-center transition-all ${
-                        dropZone === position ? 'drop-zone-active' : 'border-gray-300'
-                    }`,
-                    onDragOver: handleDragOver,
-                    onDragEnter: (e) => handleDragEnter(e, position),
-                    onDragLeave: handleDragLeave,
-                    onDrop: (e) => handleDrop(e, position)
-                },
-                    currentPlayer ? 
-                        (gameMode ? 
-                            React.createElement(GameStatTile, { player: currentPlayer, position: label, isOnCourt: true }) :
-                            React.createElement(PlayerTile, { player: currentPlayer, position: label, isOnCourt: true })
-                        ) :
-                        React.createElement('span', { className: "text-xs text-gray-400" }, "Empty")
-                )
-            );
+            const DropZone = ({ position, currentPlayer, label }) => {
+    const currentGame = getCurrentGameStats();
+    const isGameLocked = currentGame?.locked || false;
+    const isServer = position === 'backLeft';
+
+    const handleStatClick = (category, type) => {
+        if (isGameLocked || !currentPlayer) return;
+        updatePlayerGameStat(currentPlayer.id, category, type);
+        triggerStatAnimation(currentPlayer.id, position, type);
+    };
+
+    return React.createElement('div', { className: "relative" },
+        // Top buttons (Defense +/- for all positions, Serving +/- for server position)
+        React.createElement('div', { className: "flex justify-center gap-1 mb-1" },
+            React.createElement('button', {
+                className: "w-6 h-6 bg-red-500 text-white rounded-full text-xs flex items-center justify-center",
+                onClick: () => handleStatClick('defense', 'miss'),
+                disabled: isGameLocked || !currentPlayer,
+                style: { opacity: isGameLocked || !currentPlayer ? 0.3 : 1 }
+            }, "✗"),
+            React.createElement('button', {
+                className: "w-6 h-6 bg-green-500 text-white rounded-full text-xs flex items-center justify-center",
+                onClick: () => handleStatClick('defense', 'success'),
+                disabled: isGameLocked || !currentPlayer,
+                style: { opacity: isGameLocked || !currentPlayer ? 0.3 : 1 }
+            }, "+"),
+            isServer && React.createElement('button', {
+                className: "w-6 h-6 bg-red-500 text-white rounded-full text-xs flex items-center justify-center ml-2",
+                onClick: () => handleStatClick('serving', 'miss'),
+                disabled: isGameLocked || !currentPlayer,
+                style: { opacity: isGameLocked || !currentPlayer ? 0.3 : 1 }
+            }, "✗"),
+            isServer && React.createElement('button', {
+                className: "w-6 h-6 bg-green-500 text-white rounded-full text-xs flex items-center justify-center",
+                onClick: () => handleStatClick('serving', 'success'),
+                disabled: isGameLocked || !currentPlayer,
+                style: { opacity: isGameLocked || !currentPlayer ? 0.3 : 1 }
+            }, "+")
+        ),
+        
+        // Serving label for server position
+        isServer && React.createElement('div', { className: "text-xs text-center text-orange-700 mb-1" }, "↑ Serving"),
+        
+        // Player tile area
+        React.createElement('div', {
+            className: `h-16 border-2 border-dashed rounded-lg flex items-center justify-center transition-all ${
+                dropZone === position ? 'drop-zone-active' : 'border-gray-300'
+            }`,
+            onDragOver: handleDragOver,
+            onDragEnter: (e) => handleDragEnter(e, position),
+            onDragLeave: handleDragLeave,
+            onDrop: (e) => handleDrop(e, position)
+        },
+            currentPlayer ? 
+                (gameMode ? 
+                    React.createElement(GameStatTile, { player: currentPlayer, position: label, isOnCourt: true }) :
+                    React.createElement(PlayerTile, { player: currentPlayer, position: label, isOnCourt: true })
+                ) :
+                React.createElement('span', { className: "text-xs text-gray-400" }, "Empty")
+        )
+    );
+};
         const CourtDisplay = () => {
                 const currentGame = getCurrentGameStats();
                 const isGameLocked = currentGame?.locked || false;
