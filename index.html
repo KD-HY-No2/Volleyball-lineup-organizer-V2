@@ -382,11 +382,12 @@
                     if (!updated[teamKey].currentGame) {
                         const newGameId = Date.now();
                         updated[teamKey].games.push({
-                            id: newGameId,
-                            date: new Date().toISOString().split('T')[0],
-                            locked: false,
-                            playerStats: {}
-                        });
+    id: newGameId,
+    name: `Game ${newGameId}`,
+    date: new Date().toISOString().split('T')[0],
+    locked: false,
+    playerStats: {}
+});
                         updated[teamKey].currentGame = newGameId;
                     }
                     
@@ -405,6 +406,8 @@
                         // Update the specific stat
                         updated[teamKey].games[gameIndex].playerStats[playerId][category][type]++;
                     }
+                    // Add this line:
+addToUndoHistory(playerId, category, type);
                     
                     // Save to localStorage
                     localStorage.setItem('volleyball_gameStats', JSON.stringify(updated));
@@ -418,6 +421,59 @@
                 }
             };
 
+// Undo history tracking
+const [undoHistory, setUndoHistory] = useState([]);
+
+const addToUndoHistory = (playerId, category, type) => {
+    setUndoHistory(prev => {
+        const newHistory = [...prev, {
+            timestamp: Date.now(),
+            playerId,
+            category,
+            type,
+            gameId: getCurrentGameStats()?.id
+        }];
+        // Keep only last 20 actions for performance
+        return newHistory.slice(-20);
+    });
+};
+
+const undoLastAction = () => {
+    if (undoHistory.length === 0) return;
+    
+    const currentGame = getCurrentGameStats();
+    if (!currentGame || currentGame.locked) return;
+    
+    const lastAction = undoHistory[undoHistory.length - 1];
+    
+    // Only undo if it's from the current game
+    if (lastAction.gameId !== currentGame.id) return;
+    
+    const teamKey = teamSlots.active;
+    
+    setGameStats(prev => {
+        const updated = { ...prev };
+        const gameIndex = updated[teamKey].games.findIndex(g => g.id === currentGame.id);
+        
+        if (gameIndex >= 0 && updated[teamKey].games[gameIndex].playerStats[lastAction.playerId]) {
+            const playerStats = updated[teamKey].games[gameIndex].playerStats[lastAction.playerId];
+            if (playerStats[lastAction.category] && playerStats[lastAction.category][lastAction.type] > 0) {
+                playerStats[lastAction.category][lastAction.type]--;
+            }
+        }
+        
+        localStorage.setItem('volleyball_gameStats', JSON.stringify(updated));
+        return updated;
+    });
+    
+    // Remove the undone action from history
+    setUndoHistory(prev => prev.slice(0, -1));
+    
+    // Trigger haptic feedback
+    if (navigator.vibrate) {
+        navigator.vibrate([50, 50, 50]);
+    }
+};
             const getCumulativeStats = (playerId, category, type) => {
                 const teamKey = teamSlots.active;
                 if (!gameStats[teamKey]) return 0;
@@ -553,11 +609,12 @@
                     }
                     
                     updated[teamKey].games.push({
-                        id: newGameId,
-                        date: new Date().toISOString().split('T')[0],
-                        locked: false,
-                        playerStats: {}
-                    });
+    id: newGameId,
+    name: `Game ${newGameId}`,
+    date: new Date().toISOString().split('T')[0],
+    locked: false,
+    playerStats: {}
+});
                     updated[teamKey].currentGame = newGameId;
                     
                     localStorage.setItem('volleyball_gameStats', JSON.stringify(updated));
@@ -2136,17 +2193,17 @@ React.createElement('button', {
     style: { opacity: isGameLocked || !currentPlayer ? 0.3 : 1 }
 }, "✗"),
             isServer && React.createElement('button', {
-                className: "w-6 h-6 bg-red-500 text-white rounded-full text-xs flex items-center justify-center ml-2",
-                onClick: () => handleStatClick('serving', 'miss'),
-                disabled: isGameLocked || !currentPlayer,
-                style: { opacity: isGameLocked || !currentPlayer ? 0.3 : 1 }
-            }, "✗"),
-            isServer && React.createElement('button', {
-                className: "w-6 h-6 bg-green-500 text-white rounded-full text-xs flex items-center justify-center",
-                onClick: () => handleStatClick('serving', 'success'),
-                disabled: isGameLocked || !currentPlayer,
-                style: { opacity: isGameLocked || !currentPlayer ? 0.3 : 1 }
-            }, "+")
+    className: "w-6 h-6 bg-green-500 text-white rounded-full text-xs flex items-center justify-center ml-2",
+    onClick: () => handleStatClick('serving', 'success'),
+    disabled: isGameLocked || !currentPlayer,
+    style: { opacity: isGameLocked || !currentPlayer ? 0.3 : 1 }
+}, "+"),
+isServer && React.createElement('button', {
+    className: "w-6 h-6 bg-red-500 text-white rounded-full text-xs flex items-center justify-center",
+    onClick: () => handleStatClick('serving', 'miss'),
+    disabled: isGameLocked || !currentPlayer,
+    style: { opacity: isGameLocked || !currentPlayer ? 0.3 : 1 }
+}, "✗")
         ),
         
         // Serving label for server position
@@ -2323,21 +2380,59 @@ React.createElement('div', { className: "flex justify-center gap-2 mb-4" },
     )
 ),
 
-                    // Game Mode Lock/Unlock Controls
-                    gameMode && currentGame && React.createElement('div', { className: "flex justify-center gap-2 mt-4" },
-                        isGameLocked ? (
-                            React.createElement('button', {
-                                onClick: unlockCurrentGame,
-                                className: "px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm",
-                                onDoubleClick: unlockCurrentGame
-                            }, "🔓 Double-tap to Unlock")
-                        ) : (
-                            React.createElement('button', {
-                                onClick: lockCurrentGame,
-                                className: "px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
-                            }, "🔒 Lock Game")
-                        )
-                    )
+                    // Game Mode Lock/Unlock Controls and Undo
+gameMode && currentGame && React.createElement('div', { className: "space-y-2 mt-4" },
+    // Game name editing
+    React.createElement('div', { className: "text-center" },
+        React.createElement('input', {
+            type: "text",
+            value: currentGame.name || `Game ${currentGame.id}`,
+            onChange: (e) => {
+                const teamKey = teamSlots.active;
+                setGameStats(prev => {
+                    const updated = { ...prev };
+                    const gameIndex = updated[teamKey].games.findIndex(g => g.id === currentGame.id);
+                    if (gameIndex >= 0) {
+                        updated[teamKey].games[gameIndex].name = e.target.value;
+                        localStorage.setItem('volleyball_gameStats', JSON.stringify(updated));
+                    }
+                    return updated;
+                });
+            },
+            className: "text-center text-sm font-medium bg-transparent border-b border-blue-300 focus:border-blue-500 outline-none px-2 py-1",
+            disabled: isGameLocked
+        })
+    ),
+    
+    // Controls row
+    React.createElement('div', { className: "flex justify-center gap-2" },
+        // Undo button
+        !isGameLocked && React.createElement('button', {
+            onClick: undoLastAction,
+            className: `px-3 py-2 rounded-lg transition-colors text-sm ${
+                undoHistory.length > 0 
+                    ? 'bg-orange-500 text-white hover:bg-orange-600' 
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`,
+            disabled: undoHistory.length === 0,
+            title: `Undo last action (${undoHistory.length} available)`
+        }, `↶ Undo (${undoHistory.length})`),
+        
+        // Lock/Unlock button
+        isGameLocked ? (
+            React.createElement('button', {
+                onClick: unlockCurrentGame,
+                className: "px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm",
+                onDoubleClick: unlockCurrentGame
+            }, "🔓 Double-tap to Unlock")
+        ) : (
+            React.createElement('button', {
+                onClick: lockCurrentGame,
+                className: "px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+            }, "🔒 Lock Game")
+        )
+    )
+)
                 );
             };
 
