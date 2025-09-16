@@ -2264,22 +2264,32 @@ React.createElement('button', {
                     React.createElement('div', { className: "w-full h-2 bg-black mb-4 rounded" }),
 
                     // Rotation Controls
-                    React.createElement('div', { className: "flex justify-center gap-4 mb-4" },
-                        React.createElement('button', {
-                            onClick: rotateBackward,
-                            className: "flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed",
-                            disabled: [courtPositions.backLeft, courtPositions.backMiddle, courtPositions.backRight, courtPositions.frontLeft, courtPositions.frontMiddle, courtPositions.frontRight].filter(Boolean).length < 6
-                        },
-                            "⟲ Previous"
-                        ),
-                        React.createElement('button', {
-                            onClick: rotateForward,
-                            className: "flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed",
-                            disabled: [courtPositions.backLeft, courtPositions.backMiddle, courtPositions.backRight, courtPositions.frontLeft, courtPositions.frontMiddle, courtPositions.frontRight].filter(Boolean).length < 6
-                        },
-                            "Next ⟳"
-                        )
-                    ),
+React.createElement('div', { className: "flex justify-center gap-2 mb-4" },
+    React.createElement('button', {
+        onClick: rotateBackward,
+        className: "flex items-center gap-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed text-sm",
+        disabled: [courtPositions.backLeft, courtPositions.backMiddle, courtPositions.backRight, courtPositions.frontLeft, courtPositions.frontMiddle, courtPositions.frontRight].filter(Boolean).length < 6
+    },
+        "⟲ Previous"
+    ),
+    // Server swap button for substitutional mode
+    playMode === 'substitutional' && courtPositions.backLeft && courtPositions.backLeft.subPair && courtPositions.bench.some(p => p.id === courtPositions.backLeft.subPair) && (
+        React.createElement('button', {
+            onClick: swapServerWithPair,
+            className: "flex items-center gap-1 px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm",
+            title: "Swap server with their substitution pair"
+        },
+            "⇄ Swap Server"
+        )
+    ),
+    React.createElement('button', {
+        onClick: rotateForward,
+        className: "flex items-center gap-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed text-sm",
+        disabled: [courtPositions.backLeft, courtPositions.backMiddle, courtPositions.backRight, courtPositions.frontLeft, courtPositions.frontMiddle, courtPositions.frontRight].filter(Boolean).length < 6
+    },
+        "Next ⟳"
+    )
+),
 
                     // Game Mode Lock/Unlock Controls
                     gameMode && currentGame && React.createElement('div', { className: "flex justify-center gap-2 mt-4" },
