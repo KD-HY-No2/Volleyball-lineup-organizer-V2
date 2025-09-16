@@ -2203,29 +2203,27 @@ React.createElement('button', {
                         React.createElement('div', { className: "text-xs text-center mb-2 text-orange-700" }, "Back Row (20 ft)"),
                         React.createElement('div', { className: "grid grid-cols-3 gap-2" },
                             React.createElement('div', { className: "text-center" },
-                                React.createElement('div', { className: "text-xs mb-1" }, "Left (Serve)"),
-                                React.createElement(DropZone, { 
-                                    position: "backLeft", 
-                                    currentPlayer: courtPositions.backLeft, 
-                                    label: "BL" 
-                                })
-                            ),
                             React.createElement('div', { className: "text-center" },
-                                React.createElement('div', { className: "text-xs mb-1" }, "Middle"),
-                                React.createElement(DropZone, { 
-                                    position: "backMiddle", 
-                                    currentPlayer: courtPositions.backMiddle, 
-                                    label: "BM" 
-                                })
-                            ),
-                            React.createElement('div', { className: "text-center" },
-                                React.createElement('div', { className: "text-xs mb-1" }, "Right"),
-                                React.createElement(DropZone, { 
-                                    position: "backRight", 
-                                    currentPlayer: courtPositions.backRight, 
-                                    label: "BR" 
-                                })
-                            )
+    React.createElement(DropZone, { 
+        position: "backLeft", 
+        currentPlayer: courtPositions.backLeft, 
+        label: "BL" 
+    })
+),
+React.createElement('div', { className: "text-center" },
+    React.createElement(DropZone, { 
+        position: "backMiddle", 
+        currentPlayer: courtPositions.backMiddle, 
+        label: "BM" 
+    })
+),
+React.createElement('div', { className: "text-center" },
+    React.createElement(DropZone, { 
+        position: "backRight", 
+        currentPlayer: courtPositions.backRight, 
+        label: "BR" 
+    })
+)
                         )
                     ),
 
