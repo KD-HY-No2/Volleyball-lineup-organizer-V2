@@ -1380,6 +1380,47 @@
                 setCourtPositions(newPositions);
                 setRotationCount(prev => direction === 'forward' ? prev + 1 : Math.max(0, prev - 1));
             };
+           setCourtPositions(newPositions);
+setRotationCount(prev => direction === 'forward' ? prev + 1 : Math.max(0, prev - 1));
+};
+
+// Server swap function for substitutional mode
+const swapServerWithPair = () => {
+    if (playMode !== 'substitutional' || !courtPositions.backLeft) return;
+    
+    const currentServer = courtPositions.backLeft;
+    if (!currentServer.subPair) return; // No pair to swap with
+    
+    const serverPartner = players.find(p => p.id === currentServer.subPair);
+    if (!serverPartner) return;
+    
+    // Check if partner is on bench
+    const partnerOnBench = courtPositions.bench.some(p => p.id === serverPartner.id);
+    if (!partnerOnBench) return; // Partner not available for swap
+    
+    const newPositions = { ...courtPositions };
+    
+    // Swap server with their pair
+    newPositions.backLeft = serverPartner;
+    
+    // Remove partner from bench and add current server to bench
+    const benchIndex = newPositions.bench.findIndex(p => p.id === serverPartner.id);
+    if (benchIndex >= 0) {
+        newPositions.bench.splice(benchIndex, 1);
+    }
+    newPositions.bench.push(currentServer);
+    
+    setCourtPositions(newPositions);
+    
+    // Update substitution tracking
+    setSubstitutionCount(prev => prev + 1);
+    setSubHistory(prev => [...prev, {
+        rotation: rotationCount,
+        out: currentServer.name,
+        in: serverPartner.name,
+        reason: 'Server swap with pair'
+    }]);
+};
             
 // Export team data
             const exportData = () => {
