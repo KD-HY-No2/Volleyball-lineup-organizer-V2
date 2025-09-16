@@ -2028,9 +2028,16 @@
         'data-player-id': player.id
     },
         React.createElement('div', { className: "text-center font-bold text-sm mb-1" }, player.name),
-        React.createElement('div', { className: "text-xs text-center text-gray-600" },
-            `D: ${defenseSuccess}/${defenseMiss} | S: ${servingSuccess}/${servingMiss}`
-        ),
+        React.createElement('div', { className: "text-xs text-center" },
+    "D: ",
+    React.createElement('span', { className: "text-green-600 font-medium" }, defenseSuccess),
+    "/",
+    React.createElement('span', { className: "text-red-600 font-medium" }, defenseMiss),
+    " | S: ",
+    React.createElement('span', { className: "text-green-600 font-medium" }, servingSuccess),
+    "/",
+    React.createElement('span', { className: "text-red-600 font-medium" }, servingMiss)
+),
     
     );
 };
@@ -2079,17 +2086,17 @@
         // Top buttons (Defense +/- for all positions, Serving +/- for server position)
         gameMode && React.createElement('div', { className: "flex justify-center gap-1 mb-1" },
             React.createElement('button', {
-                className: "w-6 h-6 bg-red-500 text-white rounded-full text-xs flex items-center justify-center",
-                onClick: () => handleStatClick('defense', 'miss'),
-                disabled: isGameLocked || !currentPlayer,
-                style: { opacity: isGameLocked || !currentPlayer ? 0.3 : 1 }
-            }, "✗"),
-            React.createElement('button', {
-                className: "w-6 h-6 bg-green-500 text-white rounded-full text-xs flex items-center justify-center",
-                onClick: () => handleStatClick('defense', 'success'),
-                disabled: isGameLocked || !currentPlayer,
-                style: { opacity: isGameLocked || !currentPlayer ? 0.3 : 1 }
-            }, "+"),
+    className: "w-6 h-6 bg-green-500 text-white rounded-full text-xs flex items-center justify-center",
+    onClick: () => handleStatClick('defense', 'success'),
+    disabled: isGameLocked || !currentPlayer,
+    style: { opacity: isGameLocked || !currentPlayer ? 0.3 : 1 }
+}, "+"),
+React.createElement('button', {
+    className: "w-6 h-6 bg-red-500 text-white rounded-full text-xs flex items-center justify-center",
+    onClick: () => handleStatClick('defense', 'miss'),
+    disabled: isGameLocked || !currentPlayer,
+    style: { opacity: isGameLocked || !currentPlayer ? 0.3 : 1 }
+}, "✗"),
             isServer && React.createElement('button', {
                 className: "w-6 h-6 bg-red-500 text-white rounded-full text-xs flex items-center justify-center ml-2",
                 onClick: () => handleStatClick('serving', 'miss'),
