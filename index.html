@@ -2987,7 +2987,7 @@ React.createElement(GameHistoryBrowser),
                 React.createElement('div', { className: "mb-6" },
                     React.createElement('div', { className: "flex items-center justify-between mb-3" },
                         React.createElement('h2', { className: "text-lg font-semibold" }, 
-                            gameMode ? "Season Stats" : `Team Roster (${players.length}/12)`
+                            gameMode ? "Season Stats" : `Team Roster (${players.filter(p => p.active).length} active / ${players.length} total)`
                         ),
                         !gameMode && React.createElement('button', {
                             onClick: () => setShowPlayerForm(true),
@@ -2998,7 +2998,7 @@ React.createElement(GameHistoryBrowser),
                     ),
                     
                     React.createElement('div', { className: "space-y-2" },
-                        players.filter(p => p.active).map(player => {
+                        players.map(player => {
                             const subColorClass = player.subColor !== null ? SUB_COLORS[player.subColor] : '';
                             const isNoSub = (playMode === 'substitutional' && player.star) || player.isFullTime;
                             const subPartner = player.subPair ? players.find(p => p.id === player.subPair) : null;
@@ -3012,8 +3012,8 @@ React.createElement(GameHistoryBrowser),
                             return React.createElement('div', { 
                                 key: player.id, 
                                 className: `flex items-center gap-2 p-2 rounded-lg transition-all ${
-                                    !gameMode && (isNoSub ? 'no-sub-player' : subColorClass || 'bg-white')
-                                } ${!player.active ? 'opacity-50' : ''} ${gameMode ? 'bg-gray-50 border' : ''}`
+    !gameMode && (isNoSub ? 'no-sub-player' : subColorClass || 'bg-white')
+} ${!player.active ? 'opacity-50 bg-gray-100 border border-gray-300' : ''} ${gameMode ? 'bg-gray-50 border' : ''}`
                             },
                                 !gameMode && React.createElement('button', {
                                     onClick: () => togglePlayerActive(player.id),
@@ -3037,7 +3037,9 @@ React.createElement(GameHistoryBrowser),
                                     onClick: !gameMode ? () => handleEditPlayer(player) : undefined
                                 },
                                     React.createElement('div', { className: "flex items-center justify-between" },
-                                        React.createElement('div', { className: "font-semibold text-sm" }, player.name),
+                                        React.createElement('div', { className: `font-semibold text-sm ${!player.active ? 'text-gray-500' : ''}` }, 
+    player.name + (!player.active ? ' (Inactive)' : '')
+),
                                         React.createElement('div', { className: "flex gap-1" },
                                             !gameMode && subPartner && React.createElement('span', { 
                                                 className: "text-xs text-blue-600",
