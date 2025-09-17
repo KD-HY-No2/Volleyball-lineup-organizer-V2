@@ -2899,87 +2899,119 @@ React.createElement(GameHistoryBrowser),
                         
                         // Manual Setup button for substitutional mode
                         playMode === 'substitutional' && (
-                            React.createElement('button', {
-                                onClick: () => {
-                                    const activePlayers = players.filter(p => p.active);
-                                    if (activePlayers.length < 6) return;
-
-                                    const courtPlayers = [];
-                                    const benchPlayers = [];
-                                    
-                                    // Process players in roster order, respecting sub pairings
-                                    const processedPlayers = new Set();
-                                    
-                                    activePlayers.forEach(player => {
-                                        if (processedPlayers.has(player.id)) return;
-                                        
-                                        if (player.subPair) {
-                                            const partner = players.find(p => p.id === player.subPair);
-                                            if (partner && !processedPlayers.has(partner.id)) {
-                                                // For sub pairs, put the better serve receive player on court
-                                                const courtPlayer = player.serveReceive >= partner.serveReceive ? player : partner;
-                                                const benchPlayer = courtPlayer === player ? partner : player;
-                                                
-                                                if (courtPlayers.length < 6) {
-                                                    courtPlayers.push(courtPlayer);
-                                                    benchPlayers.push(benchPlayer);
-                                                } else {
-                                                    benchPlayers.push(courtPlayer, benchPlayer);
-                                                }
-                                                
-                                                processedPlayers.add(player.id);
-                                                processedPlayers.add(partner.id);
-                                            }
-                                        } else {
-                                            // No sub pair - add to court or bench
-                                            if (courtPlayers.length < 6) {
-                                                courtPlayers.push(player);
-                                            } else {
-                                                benchPlayers.push(player);
-                                            }
-                                            processedPlayers.add(player.id);
-                                        }
-                                    });
-
-                                    // Fill remaining court spots if needed
-                                    while (courtPlayers.length < 6 && benchPlayers.length > 0) {
-                                        courtPlayers.push(benchPlayers.shift());
-                                    }
-
-                                    // Arrange court positions based on serve receive and setting strengths
-                                    if (courtPlayers.length >= 6) {
-                                        const sortedBySR = [...courtPlayers].sort((a, b) => b.serveReceive - a.serveReceive);
-                                        const sortedBySetting = [...courtPlayers].sort((a, b) => b.setting - a.setting);
-                                        
-                                        const newPositions = {
-                                            // Back row: best serve receive players
-                                            backLeft: sortedBySR[0],
-                                            backMiddle: sortedBySR[1], 
-                                            backRight: sortedBySR[2],
-                                            // Front row: best setting players from remaining
-                                            frontLeft: sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3],
-                                            frontMiddle: sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p) && 
-                                                        p !== (sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3])) || sortedBySetting[4],
-                                            frontRight: courtPlayers.find(p => ![
-                                                sortedBySR[0], sortedBySR[1], sortedBySR[2],
-                                                sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3],
-                                                sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p) && 
-                                                    p !== (sortedBySetting.find(p => !sortedBySR.slice(0, 3).includes(p)) || sortedBySetting[3])) || sortedBySetting[4]
-                                            ].includes(p)) || sortedBySetting[5],
-                                            bench: benchPlayers
-                                        };
-                                        
-                                        setCourtPositions(newPositions);
-                                        setSubstitutionCount(0);
-                                        setSubHistory([]);
-                                        setRotationCount(0);
-                                    }
-                                },
-                                className: "flex-1 p-3 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors",
-                                disabled: players.filter(p => p.active).length < 6
-                            },
-                                "⚙️ Manual Setup"
-                            )
+                         React.createElement('button', {
+    onClick: () => {
+        const activePlayers = players.filter(p => p.active);
+        if (activePlayers.length < 4) return; // Allow as few as 4 players
+        
+        // Separate players into categories based on existing user setup
+        const unpairedPlayers = activePlayers.filter(p => p.star || p.isFullTime || !p.subPair);
+        const pairedPlayers = activePlayers.filter(p => p.subPair && !p.star && !p.isFullTime);
+        
+        // Build court lineup respecting user's manual setup
+        const courtPlayers = [];
+        const benchPlayers = [];
+        
+        // Add all unpaired (no-sub) players to court first
+        courtPlayers.push(...unpairedPlayers);
+        
+        // Process pairs - choose best player for starting position
+        const processedPairs = new Set();
+        
+        pairedPlayers.forEach(player => {
+            if (processedPairs.has(player.id)) return;
+            
+            const partner = players.find(p => p.id === player.subPair);
+            if (partner && !processedPairs.has(partner.id)) {
+                processedPairs.add(player.id);
+                processedPairs.add(partner.id);
+                
+                // For pairs, select better all-around player to start
+                // (will be optimized by position later)
+                if (player.allAround >= partner.allAround) {
+                    if (courtPlayers.length < 6) {
+                        courtPlayers.push(player);
+                        benchPlayers.push(partner);
+                    } else {
+                        benchPlayers.push(player, partner);
+                    }
+                } else {
+                    if (courtPlayers.length < 6) {
+                        courtPlayers.push(partner);
+                        benchPlayers.push(player);
+                    } else {
+                        benchPlayers.push(player, partner);
+                    }
+                }
+            }
+        });
+        
+        // Use optimized court positioning if we have players
+        if (courtPlayers.length >= 4) {
+            let finalPositions;
+            
+            if (courtPlayers.length >= 6) {
+                // Full team - use the same optimization as Optimize Subs
+                finalPositions = optimizeCourtPositions(courtPlayers, unpairedPlayers);
+                
+                // Apply position-based swapping with bench partners
+                Object.keys(finalPositions).forEach(position => {
+                    if (position === 'bench' || !finalPositions[position]) return;
+                    
+                    const currentPlayer = finalPositions[position];
+                    const benchPartner = benchPlayers.find(p => p.subPair === currentPlayer.id);
+                    
+                    if (benchPartner) {
+                        const isBackRow = isBackRowPosition(position);
+                        let shouldSwap = false;
+                        
+                        if (isBackRow) {
+                            shouldSwap = benchPartner.serveReceive > currentPlayer.serveReceive;
+                        } else {
+                            shouldSwap = benchPartner.setting > currentPlayer.setting;
+                        }
+                        
+                        if (shouldSwap) {
+                            const courtIndex = courtPlayers.indexOf(currentPlayer);
+                            const benchIndex = benchPlayers.indexOf(benchPartner);
+                            
+                            if (courtIndex >= 0 && benchIndex >= 0) {
+                                courtPlayers[courtIndex] = benchPartner;
+                                benchPlayers[benchIndex] = currentPlayer;
+                                finalPositions[position] = benchPartner;
+                            }
+                        }
+                    }
+                });
+            } else {
+                // Partial team (4-5 players) - basic positioning
+                const sortedBySR = [...courtPlayers].sort((a, b) => b.serveReceive - a.serveReceive);
+                
+                finalPositions = {
+                    backLeft: sortedBySR[0] || null,
+                    backMiddle: sortedBySR[1] || null,
+                    backRight: courtPlayers.length > 2 ? sortedBySR[2] : null,
+                    frontLeft: courtPlayers.length > 3 ? sortedBySR[3] : null,
+                    frontMiddle: courtPlayers.length > 4 ? sortedBySR[4] : null,
+                    frontRight: courtPlayers.length > 5 ? sortedBySR[5] : null
+                };
+            }
+            
+            setCourtPositions({
+                ...finalPositions,
+                bench: benchPlayers
+            });
+            
+            setSubstitutionCount(0);
+            setSubHistory([]);
+            setRotationCount(0);
+        }
+    },
+    className: "flex-1 p-3 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors",
+    disabled: players.filter(p => p.active).length < 4
+},
+    "⚙️ Manual Setup"
+)   
                         )
                     )
                 ),
