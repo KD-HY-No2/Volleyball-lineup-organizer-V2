@@ -710,7 +710,35 @@ const getGameTotalsForGame = (gameId, category, type) => {
         return total + (stats[category][type] || 0);
     }, 0);
 }; 
+
+            const deleteGame = (gameId) => {
+    const teamKey = teamSlots.active;
+    
+    if (confirm('Are you sure you want to delete this game? This action cannot be undone.')) {
+        setGameStats(prev => {
+            const updated = { ...prev };
             
+            if (updated[teamKey] && updated[teamKey].games) {
+                // Remove the game from the games array
+                updated[teamKey].games = updated[teamKey].games.filter(g => g.id !== gameId);
+                
+                // If this was the current game, clear the current game reference
+                if (updated[teamKey].currentGame === gameId) {
+                    updated[teamKey].currentGame = null;
+                }
+                
+                localStorage.setItem('volleyball_gameStats', JSON.stringify(updated));
+            }
+            
+            return updated;
+        });
+        
+        // Close the individual game view if we're viewing the deleted game
+        if (selectedHistoryGame && selectedHistoryGame.id === gameId) {
+            setSelectedHistoryGame(null);
+        }
+    }
+};
             // Save to localStorage whenever data changes
             useEffect(() => {
                 saveToStorage('volleyball_players', players);
@@ -2550,14 +2578,24 @@ const GameHistoryBrowser = () => {
             // Individual Game View
             React.createElement('div', {},
                 React.createElement('div', { className: "flex items-center justify-between mb-4" },
-                    React.createElement('button', {
-                        onClick: () => setSelectedHistoryGame(null),
-                        className: "flex items-center gap-2 text-blue-600 hover:text-blue-800"
-                    }, "← Back to Game List"),
-                    React.createElement('h4', { className: "text-md font-semibold" }, 
-                        selectedHistoryGame.name || `Game ${selectedHistoryGame.id}`
-                    )
-                ),
+    React.createElement('button', {
+        onClick: () => setSelectedHistoryGame(null),
+        className: "flex items-center gap-2 text-blue-600 hover:text-blue-800"
+    }, "← Back to Game List"),
+    React.createElement('div', { className: "flex items-center gap-2" },
+        React.createElement('h4', { className: "text-md font-semibold" }, 
+            selectedHistoryGame.name || `Game ${selectedHistoryGame.id}`
+        ),
+        React.createElement('button', {
+            onClick: (e) => {
+                e.stopPropagation();
+                deleteGame(selectedHistoryGame.id);
+            },
+            className: "w-8 h-8 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600 transition-colors",
+            title: "Delete game"
+        }, "×")
+    )
+),
                 
                 // Game stats display
                 React.createElement('div', { className: "space-y-4" },
@@ -2619,26 +2657,36 @@ const GameHistoryBrowser = () => {
             ) : (
                 React.createElement('div', { className: "space-y-2" },
                     gameHistory.map(game => (
-                        React.createElement('div', {
-                            key: game.id,
-                            onClick: () => setSelectedHistoryGame(game),
-                            className: "p-3 bg-white border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                        },
-                            React.createElement('div', { className: "flex items-center justify-between" },
-                                React.createElement('div', {},
-                                    React.createElement('div', { className: "font-medium text-sm" }, 
-                                        game.name || `Game ${game.id}`
-                                    ),
-                                    React.createElement('div', { className: "text-xs text-gray-500" }, 
-                                        `Date: ${game.date}`
-                                    )
-                                ),
-                                React.createElement('div', { className: "text-xs text-gray-600" },
-                                    `D: ${getGameTotalsForGame(game.id, 'defense', 'success')}/${getGameTotalsForGame(game.id, 'defense', 'miss')} | `,
-                                    `S: ${getGameTotalsForGame(game.id, 'serving', 'success')}/${getGameTotalsForGame(game.id, 'serving', 'miss')}`
-                                )
-                            )
-                        )
+                     React.createElement('div', {
+    key: game.id,
+    className: "p-3 bg-white border rounded-lg hover:bg-gray-50 transition-colors"
+},
+    React.createElement('div', { className: "flex items-center justify-between" },
+        React.createElement('div', { 
+            className: "flex-1 cursor-pointer",
+            onClick: () => setSelectedHistoryGame(game)
+        },
+            React.createElement('div', { className: "font-medium text-sm" }, 
+                game.name || `Game ${game.id}`
+            ),
+            React.createElement('div', { className: "text-xs text-gray-500" }, 
+                `Date: ${game.date}`
+            ),
+            React.createElement('div', { className: "text-xs text-gray-600 mt-1" },
+                `D: ${getGameTotalsForGame(game.id, 'defense', 'success')}/${getGameTotalsForGame(game.id, 'defense', 'miss')} | `,
+                `S: ${getGameTotalsForGame(game.id, 'serving', 'success')}/${getGameTotalsForGame(game.id, 'serving', 'miss')}`
+            )
+        ),
+        React.createElement('button', {
+            onClick: (e) => {
+                e.stopPropagation();
+                deleteGame(game.id);
+            },
+            className: "ml-3 w-8 h-8 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600 transition-colors",
+            title: "Delete game"
+        }, "×")
+    )
+)   
                     ))
                 )
             )
