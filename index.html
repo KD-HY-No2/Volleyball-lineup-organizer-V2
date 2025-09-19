@@ -2515,11 +2515,11 @@ gameMode && currentGame && React.createElement('div', { className: "space-y-2 mt
                     onDrop: !gameMode ? (e) => handleDrop(e, 'bench') : undefined
                 },
                     React.createElement('div', { className: "text-center text-sm font-semibold mb-3 text-green-800" },
-                        gameMode ? "Bench Players (Tap stat bubbles to track)" :
-                        playMode === 'substitutional' 
-                            ? "Bench Players (Available for substitution)"
-                            : "Bench Players (Next to rotate in at bottom)"
-                    ),
+    gameMode ? "Bench Players (Tap stat bubbles to track)" :
+    playMode === 'substitutional' 
+        ? "Bench Players (Available for substitution)"
+        : "Bench Players (Next to rotate in at top)"
+),
                     React.createElement('div', { className: "space-y-2" },
                         courtPositions.bench.map((player, index) => (
                             React.createElement('div', { key: player.id, className: "flex items-center gap-2" },
