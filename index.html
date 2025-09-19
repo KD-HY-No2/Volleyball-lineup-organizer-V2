@@ -2524,8 +2524,8 @@ gameMode && currentGame && React.createElement('div', { className: "space-y-2 mt
                         courtPositions.bench.map((player, index) => (
                             React.createElement('div', { key: player.id, className: "flex items-center gap-2" },
                                 !gameMode && React.createElement('span', { className: "text-xs w-6 text-center" }, 
-                                    playMode === 'rotational' ? courtPositions.bench.length - index : index + 1
-                                ),
+    playMode === 'rotational' ? index + 1 : index + 1
+),
                                 gameMode ? 
                                     React.createElement(GameStatTile, { player: player, isOnCourt: false, benchIndex: index }) :
                                     React.createElement(PlayerTile, { player: player, isOnCourt: false, benchIndex: index })
