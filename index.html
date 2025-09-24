@@ -2262,10 +2262,10 @@ const swapServerWithPair = () => {
     const isGameLocked = currentGame?.locked || false;
     const isServer = position === 'backLeft';
 
-    const handleStatClick = (category, type) => {
+    const handleStatClick = (category, type, event) => {
         if (isGameLocked || !currentPlayer) return;
         updatePlayerGameStat(currentPlayer.id, category, type);
-        triggerStatAnimation(currentPlayer.id, position, type);
+        triggerStatAnimation(currentPlayer.id, position, type, event.target);
     };
 
     return React.createElement('div', { className: "relative" },
