@@ -2251,25 +2251,25 @@ const swapServerWithPair = () => {
         // Top buttons (Defense +/- for all positions, Serving +/- for server position)
         gameMode && React.createElement('div', { className: "flex justify-center gap-1 mb-1" },
             React.createElement('button', {
-    className: "w-6 h-6 bg-green-500 text-white rounded-full text-xs flex items-center justify-center",
+    className: "w-7 h-7 bg-green-500 text-white rounded-full text-sm font-bold flex items-center justify-center hover:bg-green-600 active:scale-95 transition-all",
     onClick: () => handleStatClick('defense', 'success'),
     disabled: isGameLocked || !currentPlayer,
     style: { opacity: isGameLocked || !currentPlayer ? 0.3 : 1 }
 }, "+"),
 React.createElement('button', {
-    className: "w-6 h-6 bg-red-500 text-white rounded-full text-xs flex items-center justify-center",
+    className: "w-7 h-7 bg-red-500 text-white rounded-full text-sm font-bold flex items-center justify-center hover:bg-red-600 active:scale-95 transition-all",
     onClick: () => handleStatClick('defense', 'miss'),
     disabled: isGameLocked || !currentPlayer,
     style: { opacity: isGameLocked || !currentPlayer ? 0.3 : 1 }
 }, "✗"),
             isServer && React.createElement('button', {
-    className: "w-6 h-6 bg-green-500 text-white rounded-full text-xs flex items-center justify-center ml-2",
+    className: "w-7 h-7 bg-green-500 text-white rounded-full text-sm font-bold flex items-center justify-center ml-2 hover:bg-green-600 active:scale-95 transition-all",
     onClick: () => handleStatClick('serving', 'success'),
     disabled: isGameLocked || !currentPlayer,
     style: { opacity: isGameLocked || !currentPlayer ? 0.3 : 1 }
 }, "+"),
 isServer && React.createElement('button', {
-    className: "w-6 h-6 bg-red-500 text-white rounded-full text-xs flex items-center justify-center",
+    className: "w-7 h-7 bg-red-500 text-white rounded-full text-sm font-bold flex items-center justify-center hover:bg-red-600 active:scale-95 transition-all",
     onClick: () => handleStatClick('serving', 'miss'),
     disabled: isGameLocked || !currentPlayer,
     style: { opacity: isGameLocked || !currentPlayer ? 0.3 : 1 }
