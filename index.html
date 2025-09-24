@@ -502,24 +502,14 @@ const undoLastAction = () => {
                 const element = document.querySelector(`[data-player-id="${playerId}"]`);
                 if (!element) return;
                 
-                const rect = element.getBoundingClientRect();
-                const animationId = `${playerId}-${Date.now()}`;
+                // Add flash class to the tile
+                const flashClass = type === 'success' ? 'tile-flash-green' : 'tile-flash-red';
+                element.classList.add(flashClass);
                 
-                const animation = document.createElement('div');
-                animation.className = `stat-animation ${type === 'success' ? 'plus-anim' : 'minus-anim'}`;
-                animation.textContent = type === 'success' ? '+' : '✗';
-                animation.style.position = 'fixed';
-                animation.style.left = `${rect.left + rect.width / 2}px`;
-                animation.style.top = `${rect.top + rect.height / 2}px`;
-                animation.style.zIndex = '1000';
-                
-                document.body.appendChild(animation);
-                
+                // Remove the flash class after animation completes
                 setTimeout(() => {
-                    if (animation.parentNode) {
-                        animation.parentNode.removeChild(animation);
-                    }
-                }, 800);
+                    element.classList.remove(flashClass);
+                }, 600);
             };
           // Fixed team switching with proper slot rotation
             const switchTeam = (targetSlot) => {
