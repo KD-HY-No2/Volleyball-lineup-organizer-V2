@@ -520,18 +520,27 @@ const undoLastAction = () => {
           // Animation references
             const animationRefs = useRef(new Map());
 
-            const triggerStatAnimation = (playerId, position, type) => {
-                const element = document.querySelector(`[data-player-id="${playerId}"]`);
-                if (!element) return;
+            const triggerStatAnimation = (playerId, position, type, buttonElement) => {
+                if (!buttonElement) return;
                 
-                // Add flash class to the tile
-                const flashClass = type === 'success' ? 'tile-flash-green' : 'tile-flash-red';
-                element.classList.add(flashClass);
+                const rect = buttonElement.getBoundingClientRect();
                 
-                // Remove the flash class after animation completes
+                const animation = document.createElement('div');
+                animation.className = `stat-animation ${type === 'success' ? 'plus-anim' : 'minus-anim'}`;
+                animation.textContent = type === 'success' ? '+1' : '-1';
+                animation.style.position = 'fixed';
+                animation.style.left = `${rect.left + rect.width / 2 - 10}px`;
+                animation.style.top = `${rect.top + rect.height / 2 - 7}px`;
+                animation.style.zIndex = '1000';
+                animation.style.pointerEvents = 'none';
+                
+                document.body.appendChild(animation);
+                
                 setTimeout(() => {
-                    element.classList.remove(flashClass);
-                }, 600);
+                    if (animation.parentNode) {
+                        animation.parentNode.removeChild(animation);
+                    }
+                }, 800);
             };
           // Fixed team switching with proper slot rotation
             const switchTeam = (targetSlot) => {
