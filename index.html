@@ -1725,12 +1725,9 @@ const swapServerWithPair = () => {
                     return;
                 }
 
-                let eligibleServers = starPlayers.filter(p => p.serving >= 3);
+                let eligibleServers = activePlayers.filter(p => p.serving >= 3);
                 if (eligibleServers.length === 0) {
-                    eligibleServers = activePlayers.filter(p => p.serving >= 3);
-                }
-                if (eligibleServers.length === 0) {
-                    eligibleServers = [...starPlayers].sort((a, b) => b.serving - a.serving).slice(0, 1);
+                    eligibleServers = [...activePlayers].sort((a, b) => b.serving - a.serving).slice(0, 1);
                 }
                 
                 const firstServer = eligibleServers.sort((a, b) => a.defense - b.defense)[0];
