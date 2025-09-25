@@ -1990,10 +1990,7 @@ const swapServerWithPair = () => {
                 frontRight: rotationOrder[(startOffset + 3) % totalPlayers],
                 backRight: rotationOrder[(startOffset + 4) % totalPlayers],
                 backMiddle: rotationOrder[(startOffset + 5) % totalPlayers],
-                bench: [
-                    ...rotationOrder.slice(0, startOffset),
-                    ...rotationOrder.slice(startOffset + 6)
-                ]
+                bench: rotationOrder.slice(6)
             };
             
             if (checkStarRules(testPositions)) {
