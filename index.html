@@ -542,6 +542,55 @@ const undoLastAction = () => {
                     }
                 }, 800);
             };
+
+           // Manual swap function for substitutional mode
+            const handleManualSwap = (playerId) => {
+                const player = players.find(p => p.id === playerId);
+                if (!player || !player.subPair) return;
+
+                const partner = players.find(p => p.id === player.subPair);
+                if (!partner) return;
+
+                // Check if partner is on bench
+                const playerOnCourt = Object.values(courtPositions).some(pos => pos && pos.id === playerId);
+                const partnerOnBench = courtPositions.bench.some(p => p.id === partner.id);
+
+                if (!playerOnCourt || !partnerOnBench) return;
+
+                // Find player's current position
+                let currentPosition = null;
+                Object.keys(courtPositions).forEach(pos => {
+                    if (pos !== 'bench' && courtPositions[pos] && courtPositions[pos].id === playerId) {
+                        currentPosition = pos;
+                    }
+                });
+
+                if (!currentPosition) return;
+
+                const newPositions = { ...courtPositions };
+                
+                // Swap the players
+                newPositions[currentPosition] = partner;
+                
+                // Remove partner from bench and add current player to bench
+                const benchIndex = newPositions.bench.findIndex(p => p.id === partner.id);
+                if (benchIndex >= 0) {
+                    newPositions.bench.splice(benchIndex, 1);
+                }
+                newPositions.bench.push(player);
+
+                setCourtPositions(newPositions);
+
+                // Update substitution tracking
+                setSubstitutionCount(prev => prev + 1);
+                setSubHistory(prev => [...prev, {
+                    rotation: rotationCount,
+                    out: player.name,
+                    in: partner.name,
+                    reason: 'Manual swap'
+                }]);
+            };
+            
           // Fixed team switching with proper slot rotation
             const switchTeam = (targetSlot) => {
                 // Save current team data before switching
@@ -550,6 +599,7 @@ const undoLastAction = () => {
                 saveToStorage('volleyball_minThreshold', minThreshold);
                 saveToStorage('volleyball_courtPositions', courtPositions);
                 localStorage.setItem(`volleyball_playMode_${teamSlots.active}`, playMode);
+                     localStorage.setItem(`volleyball_autoSubsEnabled_${teamSlots.active}`, JSON.stringify(autoSubsEnabled));
                 
                 // Update team name in slots
                 const currentActiveSlot = teamSlots.active;
