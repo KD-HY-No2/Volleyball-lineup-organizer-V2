@@ -605,6 +605,9 @@ const undoLastAction = () => {
                 
                 const targetPlayMode = localStorage.getItem(`volleyball_playMode_${targetSlot}`);
                 setPlayMode(targetPlayMode || 'rotational');
+
+                const targetAutoSubs = localStorage.getItem(`volleyball_autoSubsEnabled_${targetSlot}`);
+                setAutoSubsEnabled(targetAutoSubs ? JSON.parse(targetAutoSubs) : false);
                 
                 // Reset optimization and substitution state
                 setBestLineups([]);
