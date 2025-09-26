@@ -2408,8 +2408,48 @@ isServer && React.createElement('button', {
                     
                     // Substitution Counter for substitutional mode
                     playMode === 'substitutional' && !gameMode && (
-                        React.createElement('div', { className: "mb-4 p-2 substitution-counter text-center text-sm" },
-                            `Substitutions: ${substitutionCount} | Rotations: ${rotationCount}`
+                        React.createElement('div', { 
+                            className: `mb-4 p-3 text-center text-sm rounded-lg border-2 ${
+                                substitutionCount >= 12 ? 'bg-red-100 border-red-500 text-red-800' :
+                                substitutionCount >= 10 ? 'bg-orange-100 border-orange-500 text-orange-800' :
+                                'bg-cyan-100 border-cyan-500 text-cyan-800'
+                            }`
+                        },
+                            React.createElement('div', { className: "flex items-center justify-center gap-4 mb-2" },
+                                React.createElement('div', { className: "font-semibold" },
+                                    `Substitutions: ${substitutionCount} | Rotations: ${rotationCount}`
+                                ),
+                                React.createElement('div', { className: "flex gap-1" },
+                                    React.createElement('button', {
+                                        onClick: () => setSubstitutionCount(Math.max(0, substitutionCount - 1)),
+                                        className: "w-6 h-6 bg-red-500 text-white rounded text-xs flex items-center justify-center hover:bg-red-600"
+                                    }, "-"),
+                                    React.createElement('button', {
+                                        onClick: () => setSubstitutionCount(substitutionCount + 1),
+                                        className: "w-6 h-6 bg-green-500 text-white rounded text-xs flex items-center justify-center hover:bg-green-600"
+                                    }, "+")
+                                )
+                            ),
+                            React.createElement('div', { className: "flex items-center justify-center gap-2" },
+                                React.createElement('span', { className: "text-xs" }, "Auto Subs:"),
+                                React.createElement('button', {
+                                    onClick: () => setAutoSubsEnabled(!autoSubsEnabled),
+                                    className: `w-12 h-6 rounded-full transition-colors ${
+                                        autoSubsEnabled ? 'bg-green-500' : 'bg-gray-400'
+                                    }`,
+                                    style: { position: 'relative' }
+                                },
+                                    React.createElement('div', {
+                                        className: `w-5 h-5 bg-white rounded-full transition-transform ${
+                                            autoSubsEnabled ? 'transform translate-x-6' : 'transform translate-x-0.5'
+                                        }`,
+                                        style: { position: 'absolute', top: '1px' }
+                                    })
+                                ),
+                                React.createElement('span', { className: "text-xs font-medium" },
+                                    autoSubsEnabled ? 'ON' : 'OFF'
+                                )
+                            )
                         )
                     ),
                     
