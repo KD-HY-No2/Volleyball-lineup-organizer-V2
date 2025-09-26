@@ -2391,7 +2391,13 @@ isServer && React.createElement('button', {
                 const currentGame = getCurrentGameStats();
                 const isGameLocked = currentGame?.locked || false;
                 
-                return React.createElement('div', { className: "bg-orange-50 border-2 border-orange-300 rounded-lg p-4 mb-6" },
+                const courtBgClass = playMode === 'substitutional' && !gameMode ? (
+                    substitutionCount >= 12 ? "bg-red-50 border-2 border-red-300" :
+                    substitutionCount >= 10 ? "bg-orange-50 border-2 border-orange-400" :
+                    "bg-orange-50 border-2 border-orange-300"
+                ) : "bg-orange-50 border-2 border-orange-300";
+
+                return React.createElement('div', { className: `${courtBgClass} rounded-lg p-4 mb-6` },
                     React.createElement('div', { className: "text-center text-sm font-semibold mb-4 text-orange-800" },
                         `${teamName} - Court Layout (${playMode.charAt(0).toUpperCase() + playMode.slice(1)} Mode)${gameMode ? ' - GAME MODE' : ''}`
                     ),
