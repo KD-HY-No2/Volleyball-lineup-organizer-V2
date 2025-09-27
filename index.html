@@ -1941,50 +1941,48 @@ const swapServerWithPair = () => {
         }
 
         // Starting positions: first 6 from rotation order
-        const startingPositions = {
-            backLeft: rotationOrder[0],       // Server position
-            frontLeft: rotationOrder[1],      
-            frontMiddle: rotationOrder[2],    
-            frontRight: rotationOrder[3],     
-            backRight: rotationOrder[4],      
-            backMiddle: rotationOrder[5],     
-            bench: rotationOrder.slice(6)     // Rest on bench
-        };
-        // Check star player rules
-        if (!checkStarRules(startingPositions)) {
-            // Try different starting rotations to find valid star arrangement
-            let validArrangement = null;
-            
-            for (let startOffset = 1; startOffset < Math.min(6, totalPlayers); startOffset++) {
-                const testPositions = {
-                    backLeft: rotationOrder[startOffset % totalPlayers],
-                    frontLeft: rotationOrder[(startOffset + 1) % totalPlayers],
-                    frontMiddle: rotationOrder[(startOffset + 2) % totalPlayers],
-                    frontRight: rotationOrder[(startOffset + 3) % totalPlayers],
-                    backRight: rotationOrder[(startOffset + 4) % totalPlayers],
-                    backMiddle: rotationOrder[(startOffset + 5) % totalPlayers],
-                    bench: [
-                        ...rotationOrder.slice(0, startOffset),
-                        ...rotationOrder.slice(startOffset + 6)
-                    ]
-                };
-                
-                if (checkStarRules(testPositions)) {
-                    validArrangement = testPositions;
-                    break;
-                }
-            }
+const startingPositions = {
+    backLeft: rotationOrder[0],       
+    frontLeft: rotationOrder[1],      
+    frontMiddle: rotationOrder[2],    
+    frontRight: rotationOrder[3],     
+    backRight: rotationOrder[4],      
+    backMiddle: rotationOrder[5],     
+    bench: rotationOrder.slice(6)     
+};
 
-            if (validArrangement) {
-                setCourtPositions(validArrangement);
-            } else {
-                alert("Cannot find valid rotation that follows star player rules. Try adjusting star player positions.");
-                setIsOptimizing(false);
-                return;
-            }
-        } else {
-            setCourtPositions(startingPositions);
+// CRITICAL: Validate no duplicates in starting positions
+const courtPlayers = [
+    startingPositions.backLeft, startingPositions.frontLeft, startingPositions.frontMiddle,
+    startingPositions.frontRight, startingPositions.backRight, startingPositions.backMiddle
+].filter(Boolean);
+
+const allPlayersInStarting = [...courtPlayers, ...startingPositions.bench];
+const playerIds = allPlayersInStarting.map(p => p.id);
+const uniqueIds = new Set(playerIds);
+
+if (uniqueIds.size !== playerIds.length) {
+    console.error("Duplicate players detected in optimization - rebuilding rotation order");
+    // Rebuild with proper alternating pattern
+    const rebuiltOrder = [];
+    const usedIds = new Set();
+    
+    rankedPlayers.forEach(player => {
+        if (!usedIds.has(player.id)) {
+            rebuiltOrder.push(player);
+            usedIds.add(player.id);
         }
+    });
+    
+    // Update positions with clean list
+    startingPositions.backLeft = rebuiltOrder[0];
+    startingPositions.frontLeft = rebuiltOrder[1];
+    startingPositions.frontMiddle = rebuiltOrder[2];
+    startingPositions.frontRight = rebuiltOrder[3];
+    startingPositions.backRight = rebuiltOrder[4];
+    startingPositions.backMiddle = rebuiltOrder[5];
+    startingPositions.bench = rebuiltOrder.slice(6);
+}
 
         // Verify rotation quality - check all possible 6-player combinations
         const finalLineup = startingPositions;
