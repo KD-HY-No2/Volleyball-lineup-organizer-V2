@@ -2072,6 +2072,9 @@ setBestLineups(finalLineups);
 setCurrentLineupIndex(0);
 setCourtPositions(finalLineups[0].positions);
 
+               setIsOptimizing(false);
+    };
+
         // Verify rotation quality - check all possible 6-player combinations
         const finalLineup = startingPositions;
         const rotations = calculateRotationStrengths(finalLineup);
