@@ -1963,39 +1963,6 @@ const startingPositions = {
     bench: rotationOrder.slice(6)     
 };
 
-// CRITICAL: Validate no duplicates in starting positions
-const courtPlayers = [
-    startingPositions.backLeft, startingPositions.frontLeft, startingPositions.frontMiddle,
-    startingPositions.frontRight, startingPositions.backRight, startingPositions.backMiddle
-].filter(Boolean);
-
-const allPlayersInStarting = [...courtPlayers, ...startingPositions.bench];
-const playerIds = allPlayersInStarting.map(p => p.id);
-const uniqueIds = new Set(playerIds);
-
-if (uniqueIds.size !== playerIds.length) {
-    console.error("Duplicate players detected in optimization - rebuilding rotation order");
-    // Rebuild with proper alternating pattern
-    const rebuiltOrder = [];
-    const usedIds = new Set();
-    
-    rankedPlayers.forEach(player => {
-        if (!usedIds.has(player.id)) {
-            rebuiltOrder.push(player);
-            usedIds.add(player.id);
-        }
-    });
-    
-    // Update positions with clean list
-    startingPositions.backLeft = rebuiltOrder[0];
-    startingPositions.frontLeft = rebuiltOrder[1];
-    startingPositions.frontMiddle = rebuiltOrder[2];
-    startingPositions.frontRight = rebuiltOrder[3];
-    startingPositions.backRight = rebuiltOrder[4];
-    startingPositions.backMiddle = rebuiltOrder[5];
-    startingPositions.bench = rebuiltOrder.slice(6);
-}
-
         // Verify rotation quality - check all possible 6-player combinations
         const finalLineup = startingPositions;
         const rotations = calculateRotationStrengths(finalLineup);
