@@ -1969,6 +1969,17 @@ const startingPositions = {
     bench: finalRotationOrder.slice(6)     
 };
 
+setBestLineups([{
+    positions: startingPositions,
+    score: 100,
+    thresholdPercent: 1,
+    avgDefense: 0,
+    servingScore: 0,
+    starBonus: 0
+}]);
+setCurrentLineupIndex(0);
+setCourtPositions(startingPositions);
+
         // Verify rotation quality - check all possible 6-player combinations
         const finalLineup = startingPositions;
         const rotations = calculateRotationStrengths(finalLineup);
