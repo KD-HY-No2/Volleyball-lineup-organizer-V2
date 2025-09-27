@@ -1892,6 +1892,23 @@ const swapServerWithPair = () => {
                 
                 setIsOptimizing(false);
             };
+
+          const calculateLineupScore = (rotations) => {
+    let aboveThresholdCount = 0;
+    let totalDefense = 0;
+    
+    rotations.forEach(rotation => {
+        if (rotation.frontRowTotal >= minThreshold && rotation.backRowTotal >= minThreshold) {
+            aboveThresholdCount++;
+        }
+        totalDefense += rotation.frontRowTotal + rotation.backRowTotal;
+    });
+    
+    const avgDefense = totalDefense / rotations.length;
+    const thresholdPercent = aboveThresholdCount / rotations.length;
+    return (avgDefense * 2) + (thresholdPercent * 50);
+};
+            
            const optimizeStandardPlay = async () => {
         setIsOptimizing(true);
         
