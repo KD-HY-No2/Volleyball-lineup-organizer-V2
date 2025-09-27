@@ -1922,45 +1922,51 @@ const swapServerWithPair = () => {
         // Create alternating pattern for full rotation
         // Pair: 1st with last, 2nd with 2nd-to-last, etc.
         const totalPlayers = rankedPlayers.length;
-               
-        // Build alternating pattern safely - no duplicates allowed
-const rotationOrder = [];
-const usedPlayers = new Set();
+        
+        // Build rotation order with guaranteed no duplicates
+        const rotationOrder = [];
+        
+        // Simple alternating approach that's bulletproof
+        const highHalf = rankedPlayers.slice(0, Math.ceil(totalPlayers / 2));
+        const lowHalf = rankedPlayers.slice(Math.ceil(totalPlayers / 2)).reverse();
+        
+        // Interleave high and low players
+        for (let i = 0; i < Math.max(highHalf.length, lowHalf.length); i++) {
+            if (highHalf[i]) rotationOrder.push(highHalf[i]);
+            if (lowHalf[i]) rotationOrder.push(lowHalf[i]);
+        }
+        
+        // Final safety check - ensure we have exactly the right number of unique players
+        const uniqueRotationOrder = [];
+        const usedIds = new Set();
+        
+        rotationOrder.forEach(player => {
+            if (!usedIds.has(player.id)) {
+                uniqueRotationOrder.push(player);
+                usedIds.add(player.id);
+            }
+        });
+        
+        // If we somehow lost players, add them back
+        rankedPlayers.forEach(player => {
+            if (!usedIds.has(player.id)) {
+                uniqueRotationOrder.push(player);
+                usedIds.add(player.id);
+            }
+        });
+        
+        // Use the clean rotation order
+        const finalRotationOrder = uniqueRotationOrder;
 
-// Try to build alternating pattern: high with low
-for (let i = 0; i < Math.floor(totalPlayers / 2); i++) {
-    const highRanked = rankedPlayers[i];
-    const lowRanked = rankedPlayers[totalPlayers - 1 - i];
-    
-    // Only add if not already used (prevents duplicates when odd numbers or small rosters)
-    if (!usedPlayers.has(highRanked.id)) {
-        rotationOrder.push(highRanked);
-        usedPlayers.add(highRanked.id);
-    }
-    
-    if (!usedPlayers.has(lowRanked.id)) {
-        rotationOrder.push(lowRanked);
-        usedPlayers.add(lowRanked.id);
-    }
-}
-
-// Add any remaining players (handles odd numbers and edge cases)
-rankedPlayers.forEach(player => {
-    if (!usedPlayers.has(player.id)) {
-        rotationOrder.push(player);
-        usedPlayers.add(player.id);
-    }
-});
-
-        // Starting positions: first 6 from rotation order
+       // Starting positions: first 6 from rotation order
 const startingPositions = {
-    backLeft: rotationOrder[0],       
-    frontLeft: rotationOrder[1],      
-    frontMiddle: rotationOrder[2],    
-    frontRight: rotationOrder[3],     
-    backRight: rotationOrder[4],      
-    backMiddle: rotationOrder[5],     
-    bench: rotationOrder.slice(6)     
+    backLeft: finalRotationOrder[0],       
+    frontLeft: finalRotationOrder[1],      
+    frontMiddle: finalRotationOrder[2],    
+    frontRight: finalRotationOrder[3],     
+    backRight: finalRotationOrder[4],      
+    backMiddle: finalRotationOrder[5],     
+    bench: finalRotationOrder.slice(6)     
 };
 
         // Verify rotation quality - check all possible 6-player combinations
