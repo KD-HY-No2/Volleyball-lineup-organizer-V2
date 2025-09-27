@@ -2107,58 +2107,6 @@ setCourtPositions(finalLineups[0].positions);
                setIsOptimizing(false);
     };
 
-        // Verify rotation quality - check all possible 6-player combinations
-        const finalLineup = startingPositions;
-        const rotations = calculateRotationStrengths(finalLineup);
-        
-        let aboveThresholdCount = 0;
-        let totalDefense = 0;
-        let starBonus = 0;
-
-        rotations.forEach((rotation, index) => {
-            if (rotation.frontRowTotal >= minThreshold && rotation.backRowTotal >= minThreshold) {
-                aboveThresholdCount++;
-            }
-            totalDefense += rotation.frontRowTotal + rotation.backRowTotal;
-
-            // Star bonus calculation for current rotation
-            let currentPos = { ...finalLineup };
-            for (let r = 0; r < index; r++) {
-                const newPos = {
-                    backRight: currentPos.backMiddle,
-                    frontRight: currentPos.backRight,
-                    frontMiddle: currentPos.frontRight,
-                    frontLeft: currentPos.frontMiddle,
-                    backLeft: currentPos.frontLeft,
-                    backMiddle: currentPos.backLeft,
-                    bench: [...currentPos.bench]
-                };
-                
-                // Handle bench rotation
-                const newBench = [...currentPos.bench];
-                if (newBench.length > 0) {
-                    newBench.push(currentPos.backLeft);
-                    newPos.backMiddle = newBench.shift();
-                } else {
-                    newPos.backMiddle = currentPos.backLeft;
-                }
-                newPos.bench = newBench;
-                currentPos = newPos;
-            }
-
-            const courtPlayers = [currentPos.backLeft, currentPos.frontLeft, currentPos.frontMiddle,
-                                currentPos.frontRight, currentPos.backRight, currentPos.backMiddle];
-            const starsOnCourt = courtPlayers.filter(p => p && p.star).length;
-            if (starsOnCourt >= 2) starBonus += 3;
-        });
-
-        const avgDefense = totalDefense / rotations.length;
-        const thresholdPercent = aboveThresholdCount / rotations.length;
-        const score = (avgDefense * 2) + (thresholdPercent * 50) + starBonus;
-
-        
-        setIsOptimizing(false);
-    };
 
             const shuffleStandardPlay = () => {
                 if (bestLineups.length === 0) return;
