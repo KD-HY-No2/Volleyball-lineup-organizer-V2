@@ -2365,28 +2365,6 @@ const swapServerWithPair = () => {
         }, "⇄")
     );
 };
-        React.createElement('div', { className: "text-center font-bold text-sm mb-1" }, player.name),
-        React.createElement('div', { className: "text-xs text-center" },
-    "D: ",
-    React.createElement('span', { className: "text-green-600 font-medium" }, defenseSuccess),
-    "/",
-    React.createElement('span', { className: "text-red-600 font-medium" }, defenseMiss),
-    " | S: ",
-    React.createElement('span', { className: "text-green-600 font-medium" }, servingSuccess),
-    "/",
-    React.createElement('span', { className: "text-red-600 font-medium" }, servingMiss)
-),
-        // Add swap button for players with pairs
-        player.subPair && React.createElement('button', {
-            onClick: (e) => {
-                e.stopPropagation();
-                handleManualSwap(player.id);
-            },
-            className: "absolute bottom-0 right-0 w-5 h-5 bg-blue-500 text-white rounded-tl text-xs flex items-center justify-center hover:bg-blue-600 transition-colors",
-            title: "Swap with pair"
-        }, "⇄")
-    );
-};
 
             // Regular Player Tile Component (non-game mode)
             const PlayerTile = ({ player, position, isOnCourt, benchIndex }) => {
