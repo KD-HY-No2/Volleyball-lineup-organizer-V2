@@ -1924,21 +1924,34 @@ const swapServerWithPair = () => {
         const totalPlayers = rankedPlayers.length;
         const rotationOrder = [];
         
-        // Build alternating pairs: high with low, with higher ranked ahead
-        for (let i = 0; i < Math.floor(totalPlayers / 2); i++) {
-            const highRanked = rankedPlayers[i];
-            const lowRanked = rankedPlayers[totalPlayers - 1 - i];
-            
-            // Higher ranked player goes first in rotation
-            rotationOrder.push(highRanked);
-            rotationOrder.push(lowRanked);
-        }
-        
-        // If odd number of players, add the middle player at the end
-        if (totalPlayers % 2 === 1) {
-            const middlePlayer = rankedPlayers[Math.floor(totalPlayers / 2)];
-            rotationOrder.push(middlePlayer);
-        }
+        // Build alternating pattern safely - no duplicates allowed
+const rotationOrder = [];
+const usedPlayers = new Set();
+
+// Try to build alternating pattern: high with low
+for (let i = 0; i < Math.floor(totalPlayers / 2); i++) {
+    const highRanked = rankedPlayers[i];
+    const lowRanked = rankedPlayers[totalPlayers - 1 - i];
+    
+    // Only add if not already used (prevents duplicates when odd numbers or small rosters)
+    if (!usedPlayers.has(highRanked.id)) {
+        rotationOrder.push(highRanked);
+        usedPlayers.add(highRanked.id);
+    }
+    
+    if (!usedPlayers.has(lowRanked.id)) {
+        rotationOrder.push(lowRanked);
+        usedPlayers.add(lowRanked.id);
+    }
+}
+
+// Add any remaining players (handles odd numbers and edge cases)
+rankedPlayers.forEach(player => {
+    if (!usedPlayers.has(player.id)) {
+        rotationOrder.push(player);
+        usedPlayers.add(player.id);
+    }
+});
 
         // Starting positions: first 6 from rotation order
 const startingPositions = {
