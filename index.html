@@ -1958,8 +1958,11 @@ const swapServerWithPair = () => {
         // Use the clean rotation order
         const finalRotationOrder = uniqueRotationOrder;
 
-       // Starting positions: first 6 from rotation order
-const startingPositions = {
+       // Generate 3 strategic lineup options
+const allLineupOptions = [];
+
+// Option 1: Best defense-first arrangement (current logic)
+const option1Positions = {
     backLeft: finalRotationOrder[0],       
     frontLeft: finalRotationOrder[1],      
     frontMiddle: finalRotationOrder[2],    
@@ -1969,16 +1972,88 @@ const startingPositions = {
     bench: finalRotationOrder.slice(6)     
 };
 
-setBestLineups([{
-    positions: startingPositions,
+if (checkStarRules(option1Positions)) {
+    const rotations1 = calculateRotationStrengths(option1Positions);
+    const score1 = calculateLineupScore(rotations1);
+    allLineupOptions.push({
+        positions: option1Positions,
+        score: score1,
+        thresholdPercent: rotations1.filter(r => r.frontRowTotal >= minThreshold && r.backRowTotal >= minThreshold).length / rotations1.length,
+        avgDefense: rotations1.reduce((sum, r) => sum + r.frontRowTotal + r.backRowTotal, 0) / rotations1.length,
+        servingScore: 0,
+        starBonus: 0
+    });
+}
+
+// Option 2: Serving-priority arrangement
+const servingSorted = [...activePlayers].sort((a, b) => {
+    if (a.serving === b.serving) {
+        return b.defense - a.defense;
+    }
+    return b.serving - a.serving;
+});
+
+const option2Positions = {
+    backLeft: servingSorted[0],       
+    frontLeft: servingSorted[1],      
+    frontMiddle: servingSorted[2],    
+    frontRight: servingSorted[3],     
+    backRight: servingSorted[4],      
+    backMiddle: servingSorted[5],     
+    bench: servingSorted.slice(6)     
+};
+
+if (checkStarRules(option2Positions)) {
+    const rotations2 = calculateRotationStrengths(option2Positions);
+    const score2 = calculateLineupScore(rotations2);
+    allLineupOptions.push({
+        positions: option2Positions,
+        score: score2,
+        thresholdPercent: rotations2.filter(r => r.frontRowTotal >= minThreshold && r.backRowTotal >= minThreshold).length / rotations2.length,
+        avgDefense: rotations2.reduce((sum, r) => sum + r.frontRowTotal + r.backRowTotal, 0) / rotations2.length,
+        servingScore: 0,
+        starBonus: 0
+    });
+}
+
+// Option 3: Different rotation starting point
+const option3Positions = {
+    backLeft: finalRotationOrder[2],       
+    frontLeft: finalRotationOrder[3],      
+    frontMiddle: finalRotationOrder[4],    
+    frontRight: finalRotationOrder[5],     
+    backRight: finalRotationOrder[0],      
+    backMiddle: finalRotationOrder[1],     
+    bench: finalRotationOrder.slice(6)     
+};
+
+if (checkStarRules(option3Positions)) {
+    const rotations3 = calculateRotationStrengths(option3Positions);
+    const score3 = calculateLineupScore(rotations3);
+    allLineupOptions.push({
+        positions: option3Positions,
+        score: score3,
+        thresholdPercent: rotations3.filter(r => r.frontRowTotal >= minThreshold && r.backRowTotal >= minThreshold).length / rotations3.length,
+        avgDefense: rotations3.reduce((sum, r) => sum + r.frontRowTotal + r.backRowTotal, 0) / rotations3.length,
+        servingScore: 0,
+        starBonus: 0
+    });
+}
+
+// Sort by score and ensure we have at least one option
+allLineupOptions.sort((a, b) => b.score - a.score);
+const finalLineups = allLineupOptions.length > 0 ? allLineupOptions : [{
+    positions: option1Positions,
     score: 100,
     thresholdPercent: 1,
     avgDefense: 0,
     servingScore: 0,
     starBonus: 0
-}]);
+}];
+
+setBestLineups(finalLineups);
 setCurrentLineupIndex(0);
-setCourtPositions(startingPositions);
+setCourtPositions(finalLineups[0].positions);
 
         // Verify rotation quality - check all possible 6-player combinations
         const finalLineup = startingPositions;
