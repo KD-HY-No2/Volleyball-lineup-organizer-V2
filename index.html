@@ -2057,6 +2057,38 @@ if (checkStarRules(option3Positions)) {
     });
 }
 
+// Add fallback options if star rules are too restrictive
+while (allLineupOptions.length < 3 && allLineupOptions.length < activePlayers.length - 5) {
+    const fallbackOrder = [...finalRotationOrder];
+    // Shuffle slightly for variation
+    if (allLineupOptions.length === 1) {
+        [fallbackOrder[1], fallbackOrder[2]] = [fallbackOrder[2], fallbackOrder[1]];
+    } else if (allLineupOptions.length === 2) {
+        [fallbackOrder[4], fallbackOrder[5]] = [fallbackOrder[5], fallbackOrder[4]];
+    }
+    
+    const fallbackPositions = {
+        backLeft: fallbackOrder[0],       
+        frontLeft: fallbackOrder[1],      
+        frontMiddle: fallbackOrder[2],    
+        frontRight: fallbackOrder[3],     
+        backRight: fallbackOrder[4],      
+        backMiddle: fallbackOrder[5],     
+        bench: fallbackOrder.slice(6)     
+    };
+    
+    const rotations = calculateRotationStrengths(fallbackPositions);
+    const score = calculateLineupScore(rotations);
+    allLineupOptions.push({
+        positions: fallbackPositions,
+        score: score,
+        thresholdPercent: rotations.filter(r => r.frontRowTotal >= minThreshold && r.backRowTotal >= minThreshold).length / rotations.length,
+        avgDefense: rotations.reduce((sum, r) => sum + r.frontRowTotal + r.backRowTotal, 0) / rotations.length,
+        servingScore: 0,
+        starBonus: 0
+    });
+}
+
 // Sort by score and ensure we have at least one option
 allLineupOptions.sort((a, b) => b.score - a.score);
 const finalLineups = allLineupOptions.length > 0 ? allLineupOptions : [{
