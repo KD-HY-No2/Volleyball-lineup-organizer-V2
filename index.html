@@ -2153,78 +2153,136 @@ const swapServerWithPair = () => {
             };
 
             const rotateForward = () => {
-                if (playMode === 'substitutional') {
-                    rotateWithSubstitutions('forward');
-                    return;
-                }
+    if (playMode === 'substitutional') {
+        rotateWithSubstitutions('forward');
+        return;
+    }
 
-                const courtPlayers = [
-                    courtPositions.backLeft,
-                    courtPositions.backMiddle,
-                    courtPositions.backRight,
-                    courtPositions.frontLeft,
-                    courtPositions.frontMiddle,
-                    courtPositions.frontRight
-                ].filter(Boolean);
-                
-                if (courtPlayers.length < 6) return;
+    const courtPlayers = [
+        courtPositions.backLeft,
+        courtPositions.frontLeft,
+        courtPositions.frontMiddle,
+        courtPositions.frontRight,
+        courtPositions.backRight,
+        courtPositions.backMiddle
+    ].filter(Boolean);
+    
+    if (courtPlayers.length < 6) return;
 
-                const newPositions = {
-                    backRight: courtPositions.backMiddle,
-                    frontRight: courtPositions.backRight,
-                    frontMiddle: courtPositions.frontRight,
-                    frontLeft: courtPositions.frontMiddle,
-                    backLeft: courtPositions.frontLeft,
-                    bench: [...courtPositions.bench]
-                };
+    // Ensure all active players are accounted for
+    const activePlayers = players.filter(p => p.active);
+    const allCurrentPlayers = [...courtPlayers, ...courtPositions.bench];
+    
+    // Validate we have all players before rotating
+    if (allCurrentPlayers.length !== activePlayers.length) {
+        console.error("Player count mismatch in rotation");
+        return;
+    }
 
-                const newBench = [...courtPositions.bench];
-                newBench.push(courtPositions.backLeft);
-                
-                if (newBench.length > 0) {
-                    newPositions.backMiddle = newBench.shift();
-                }
-                
-                newPositions.bench = newBench;
-                setCourtPositions(newPositions);
-            };
+    const newPositions = {
+        backRight: courtPositions.backMiddle,
+        frontRight: courtPositions.backRight,
+        frontMiddle: courtPositions.frontRight,
+        frontLeft: courtPositions.frontMiddle,
+        backLeft: courtPositions.frontLeft,
+        backMiddle: null,
+        bench: [...courtPositions.bench]
+    };
 
-            const rotateBackward = () => {
-                if (playMode === 'substitutional') {
-                    rotateWithSubstitutions('backward');
-                    return;
-                }
+    // Proper bench rotation
+    const newBench = [...courtPositions.bench];
+    newBench.push(courtPositions.backLeft); // Add outgoing server
+    
+    if (newBench.length > 0) {
+        newPositions.backMiddle = newBench.shift(); // Next player from bench
+    } else {
+        newPositions.backMiddle = courtPositions.backLeft;
+    }
+    
+    newPositions.bench = newBench;
+    
+    // Validate no duplicates
+    const finalCourtPlayers = [
+        newPositions.backLeft, newPositions.frontLeft, newPositions.frontMiddle,
+        newPositions.frontRight, newPositions.backRight, newPositions.backMiddle
+    ].filter(Boolean);
+    
+    const allFinalPlayers = [...finalCourtPlayers, ...newPositions.bench];
+    const playerIds = allFinalPlayers.map(p => p.id);
+    const uniqueIds = new Set(playerIds);
+    
+    if (uniqueIds.size !== playerIds.length) {
+        console.error("Duplicate players detected in rotation - aborting");
+        return;
+    }
+    
+    setCourtPositions(newPositions);
+};
 
-                const courtPlayers = [
-                    courtPositions.backLeft,
-                    courtPositions.backMiddle,
-                    courtPositions.backRight,
-                    courtPositions.frontLeft,
-                    courtPositions.frontMiddle,
-                    courtPositions.frontRight
-                ].filter(Boolean);
-                
-                if (courtPlayers.length < 6) return;
+           const rotateBackward = () => {
+    if (playMode === 'substitutional') {
+        rotateWithSubstitutions('backward');
+        return;
+    }
 
-                const newPositions = {
-                    frontLeft: courtPositions.backLeft,
-                    frontMiddle: courtPositions.frontLeft,
-                    frontRight: courtPositions.frontMiddle,
-                    backRight: courtPositions.frontRight,
-                    backMiddle: courtPositions.backRight,
-                    bench: [...courtPositions.bench]
-                };
+    const courtPlayers = [
+        courtPositions.backLeft,
+        courtPositions.frontLeft,
+        courtPositions.frontMiddle,
+        courtPositions.frontRight,
+        courtPositions.backRight,
+        courtPositions.backMiddle
+    ].filter(Boolean);
+    
+    if (courtPlayers.length < 6) return;
 
-                const newBench = [...courtPositions.bench];
-                newBench.unshift(courtPositions.backMiddle);
-                
-                if (newBench.length > 0) {
-                    newPositions.backLeft = newBench.pop();
-                }
-                
-                newPositions.bench = newBench;
-                setCourtPositions(newPositions);
-            };
+    // Ensure all active players are accounted for
+    const activePlayers = players.filter(p => p.active);
+    const allCurrentPlayers = [...courtPlayers, ...courtPositions.bench];
+    
+    if (allCurrentPlayers.length !== activePlayers.length) {
+        console.error("Player count mismatch in rotation");
+        return;
+    }
+
+    const newPositions = {
+        frontLeft: courtPositions.backLeft,
+        frontMiddle: courtPositions.frontLeft,
+        frontRight: courtPositions.frontMiddle,
+        backRight: courtPositions.frontRight,
+        backMiddle: courtPositions.backRight,
+        backLeft: null,
+        bench: [...courtPositions.bench]
+    };
+
+    const newBench = [...courtPositions.bench];
+    newBench.unshift(courtPositions.backMiddle);
+    
+    if (newBench.length > 0) {
+        newPositions.backLeft = newBench.pop();
+    } else {
+        newPositions.backLeft = courtPositions.backMiddle;
+    }
+    
+    newPositions.bench = newBench;
+    
+    // Validate no duplicates
+    const finalCourtPlayers = [
+        newPositions.backLeft, newPositions.frontLeft, newPositions.frontMiddle,
+        newPositions.frontRight, newPositions.backRight, newPositions.backMiddle
+    ].filter(Boolean);
+    
+    const allFinalPlayers = [...finalCourtPlayers, ...newPositions.bench];
+    const playerIds = allFinalPlayers.map(p => p.id);
+    const uniqueIds = new Set(playerIds);
+    
+    if (uniqueIds.size !== playerIds.length) {
+        console.error("Duplicate players detected in rotation - aborting");
+        return;
+    }
+    
+    setCourtPositions(newPositions);
+}; 
            // Drag and Drop handlers
             const handleDragStart = (e, player) => {
                 if (gameMode) {
