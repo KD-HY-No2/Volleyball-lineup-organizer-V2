@@ -2530,23 +2530,33 @@ gameMode && playMode === 'substitutional' && React.createElement('div', {
         'bg-cyan-100 border-cyan-500 text-cyan-800'
     }`
 },
-    React.createElement('div', { className: "flex items-center justify-center gap-4 mb-2" },
-        React.createElement('div', { className: "font-semibold" },
-            `Substitutions: ${substitutionCount} | Rotations: ${rotationCount}`
-        ),
-        React.createElement('div', { className: "flex gap-1" },
-            React.createElement('button', {
-                onClick: () => setSubstitutionCount(Math.max(0, substitutionCount - 1)),
-                className: "w-6 h-6 bg-red-500 text-white rounded text-xs flex items-center justify-center hover:bg-red-600",
-                disabled: isGameLocked
-            }, "-"),
-            React.createElement('button', {
-                onClick: () => setSubstitutionCount(substitutionCount + 1),
-                className: "w-6 h-6 bg-green-500 text-white rounded text-xs flex items-center justify-center hover:bg-green-600",
-                disabled: isGameLocked
-            }, "+")
-        )
+    React.createElement('div', { className: "flex items-center justify-center gap-2 mb-2" },
+    React.createElement('div', { className: "font-semibold" },
+        `Substitutions: ${substitutionCount} | Rotations: ${rotationCount}`
     ),
+    React.createElement('div', { className: "flex gap-1" },
+        React.createElement('button', {
+            onClick: () => {
+                setSubstitutionCount(0);
+                setSubHistory([]);
+                setRotationCount(0);
+            },
+            className: "px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600",
+            disabled: isGameLocked,
+            title: "Reset counters"
+        }, "Reset"),
+        React.createElement('button', {
+            onClick: () => setSubstitutionCount(Math.max(0, substitutionCount - 1)),
+            className: "w-6 h-6 bg-red-500 text-white rounded text-xs flex items-center justify-center hover:bg-red-600",
+            disabled: isGameLocked
+        }, "-"),
+        React.createElement('button', {
+            onClick: () => setSubstitutionCount(substitutionCount + 1),
+            className: "w-6 h-6 bg-green-500 text-white rounded text-xs flex items-center justify-center hover:bg-green-600",
+            disabled: isGameLocked
+        }, "+")
+    )
+),
     React.createElement('div', { className: "flex items-center justify-center gap-2" },
         React.createElement('span', { className: "text-xs" }, "Auto Subs:"),
         React.createElement('button', {
