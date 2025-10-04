@@ -678,20 +678,25 @@ const undoLastAction = () => {
             };
 
             const startNewGame = () => {
-                // Lock current game if exists
-                lockCurrentGame();
-                // Create new game
-                const teamKey = teamSlots.active;
-                const newGameId = Date.now();
-                
-                setGameStats(prev => {
-                    const updated = { ...prev };
-                    
-                    if (!updated[teamKey]) {
-                        updated[teamKey] = { games: [], currentGame: null };
-                    }
-                    
-                    // Generate sequential game number for this team
+    // Lock current game if exists
+    lockCurrentGame();
+    // Create new game
+    const teamKey = teamSlots.active;
+    const newGameId = Date.now();
+    
+    // Reset substitution and rotation counters
+    setSubstitutionCount(0);
+    setSubHistory([]);
+    setRotationCount(0);
+    
+    setGameStats(prev => {
+        const updated = { ...prev };
+        
+        if (!updated[teamKey]) {
+            updated[teamKey] = { games: [], currentGame: null };
+        }
+        
+        // Generate sequential game number for this team
 const gameNumber = updated[teamKey].games.length + 1;
 const gameDate = new Date().toISOString().split('T')[0];
 
@@ -702,12 +707,12 @@ updated[teamKey].games.push({
     locked: false,
     playerStats: {}
 });
-                    updated[teamKey].currentGame = newGameId;
-                    
-                    localStorage.setItem('volleyball_gameStats', JSON.stringify(updated));
-                    return updated;
-                });
-            };
+        updated[teamKey].currentGame = newGameId;
+        
+        localStorage.setItem('volleyball_gameStats', JSON.stringify(updated));
+        return updated;
+    });
+};
 
             const lockCurrentGame = () => {
                 const teamKey = teamSlots.active;
